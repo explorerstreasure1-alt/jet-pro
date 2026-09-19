@@ -2,9 +2,11 @@
 
 import { setMusic } from "@/lib/audio";
 import { LANGS } from "@/lib/constants";
+import { saveProgress } from "@/lib/data";
 import type { ProfileSettings } from "@/db/schema";
 import { useEffect, useState, type ReactNode } from "react";
 import { AppFrame } from "./app-frame";
+import { InstallButton } from "./install-button";
 import { useApp, getClientId } from "./providers";
 
 export function SettingsClient() {
@@ -24,17 +26,8 @@ export function SettingsClient() {
   };
 
   const resetHeat = async () => {
-    await fetch("/api/progress", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileId: profile.id, reset: true }),
-    });
+    await saveProgress(profile.id, [], true);
     await reload();
-  };
-
-  const install = async () => {
-    const deferred = (window as Window & { __wiPrompt?: { prompt: () => Promise<void> } }).__wiPrompt;
-    if (deferred) await deferred.prompt();
   };
 
   return (
@@ -131,23 +124,13 @@ export function SettingsClient() {
         <button type="button" className="holo w-full rounded-2xl py-3" onClick={() => void resetHeat()}>
           {tt("resetHeat")}
         </button>
-        <button type="button" className="holo flex w-full items-center justify-center gap-2 rounded-2xl py-3" onClick={() => void install()}>
-          <InstallIcon />
-          {tt("install")}
-        </button>
+        <InstallButton block />
         <p className="text-center text-[10px] text-white/30">{cid}</p>
       </div>
     </AppFrame>
   );
 }
 
-function InstallIcon() {
-  return (
-    <svg aria-hidden="true" className="h-5 w-5 text-cyan-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="holo rounded-2xl p-4">

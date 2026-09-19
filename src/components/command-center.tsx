@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Starfield } from "./starfield";
 import { useApp } from "./providers";
+import { InstallButton } from "./install-button";
 import { AlienSprite, ShipSprite } from "./sprites";
 
 export function CommandCenter() {
@@ -80,7 +81,8 @@ export function CommandCenter() {
               <p className="font-display text-sm tracking-[0.16em] text-cyan-100">{profile?.callsign ?? "—"}</p>
             </div>
           </div>
-          <div className="ml-auto flex gap-1.5">
+          <div className="ml-auto flex items-center gap-1.5">
+            <InstallButton />
             <StatChip label={tt("credits")} value={String(profile?.credits ?? 0)} gold />
             <StatChip label={tt("streak")} value={`${profile?.streak ?? 0}d`} />
             <StatChip label={tt("highScore")} value={padScore(profile?.highScore ?? 0)} />

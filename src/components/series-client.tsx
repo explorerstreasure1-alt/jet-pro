@@ -1,33 +1,11 @@
 "use client";
 
 import { LANGS, padScore } from "@/lib/constants";
+import { fetchSeries, type SeriesEntry, type SeriesData } from "@/lib/data";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppFrame } from "./app-frame";
 import { useApp } from "./providers";
-
-type SeriesEntry = {
-  id: string;
-  number: number;
-  from: number;
-  to: number;
-  size: number;
-  waves: number;
-  completed: boolean;
-  bestScore: number;
-  stars: number;
-  unlocked: boolean;
-};
-
-type SeriesData = {
-  language: string;
-  total: number;
-  size: number;
-  seriesCount: number;
-  remainder: number;
-  loop: number;
-  list: SeriesEntry[];
-};
 
 export function SeriesClient() {
   const { profile, tt, ui } = useApp();
@@ -38,11 +16,9 @@ export function SeriesClient() {
   useEffect(() => {
     if (!profile) return;
     let live = true;
-    fetch(`/api/series?profileId=${profile.id}&language=${lang}`)
-      .then((r) => r.json())
-      .then((d: SeriesData) => {
-        if (live) setData(d);
-      });
+    fetchSeries(profile.id, lang).then((d) => {
+      if (live) setData(d);
+    });
     return () => {
       live = false;
     };

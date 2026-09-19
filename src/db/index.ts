@@ -1,18 +1,20 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import pg from "pg";
 
-const databaseUrl = process.env.DATABASE_URL;
+// On Vercel/preview without a configured database the app must keep working:
+// client components fall back to the local-first data layer in src/lib/data.ts.
+const databaseUrl =
+  process.env.DATABASE_URL ??
+  process.env.POSTGRES_URL ??
+  "postgresql://postgres:postgres@127.0.0.1:5432/app_db";
 
-const globalForDb = globalThis as typeof globalThis & {
-  __arenaNextJsPostgresqlPool?: Pool;
-};
-
-export const pool =
-  globalForDb.__arenaNextJsPostgresqlPool ??
-  new Pool(databaseUrl ? { connectionString: databaseUrl } : undefined);
-
-if (process.env.NODE_ENV !== "production") {
-  globalForDb.__arenaNextJsPostgresqlPool = pool;
-}
+const isLocalDb = /@(localhost|127\.0\.0\.1|postgres)([:/]|$)/.test(databaseUrl);
+const pool = new pg.Pool({
+  connectionString: databaseUrl,
+  max: 10,
+  // Managed providers (Neon, Supabase, Vercel Postgres) require SSL.
+  ssl: isLocalDb ? false : { rejectUnauthorized: false },
+});
 
 export const db = drizzle(pool);
+export { pool };
