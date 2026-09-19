@@ -1,5 +1,5 @@
-const CACHE = "word-invaders-v4";
-const CORE = ["/manifest.webmanifest", "/icon.png", "/images/nebula.jpg"];
+const CACHE = "word-invaders-v5";
+const CORE = ["/manifest.webmanifest", "/icon.svg"];
 
 async function purgeOldCaches() {
   const keys = await caches.keys();

@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     "Neon sci-fi language trainer. Shoot, speak and memorize words across 7 languages from A1 to C1.",
   applicationName: "Word Invaders",
   appleWebApp: { capable: true, title: "Word Invaders", statusBarStyle: "black-translucent" },
-  icons: { icon: "/icon.png", apple: "/icon.png" },
+  icons: { icon: "/icon.svg", apple: "/icon.svg" },
   manifest: "/manifest.webmanifest",
 };
 

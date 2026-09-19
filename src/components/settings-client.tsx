@@ -131,7 +131,8 @@ export function SettingsClient() {
         <button type="button" className="holo w-full rounded-2xl py-3" onClick={() => void resetHeat()}>
           {tt("resetHeat")}
         </button>
-        <button type="button" className="holo w-full rounded-2xl py-3" onClick={() => void install()}>
+        <button type="button" className="holo flex w-full items-center justify-center gap-2 rounded-2xl py-3" onClick={() => void install()}>
+          <InstallIcon />
           {tt("install")}
         </button>
         <p className="text-center text-[10px] text-white/30">{cid}</p>
@@ -140,6 +141,13 @@ export function SettingsClient() {
   );
 }
 
+function InstallIcon() {
+  return (
+    <svg aria-hidden="true" className="h-5 w-5 text-cyan-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="holo rounded-2xl p-4">
