@@ -1,7 +1,6 @@
 "use client";
 
 import { SHOP_ITEMS } from "@/lib/constants";
-import { shopBuy } from "@/lib/data";
 import { useState } from "react";
 import { AppFrame } from "./app-frame";
 import { useApp } from "./providers";
@@ -14,23 +13,28 @@ export function ShopClient() {
 
   const buy = async (code: string) => {
     if (!profile) return;
-    try {
-      await shopBuy(profile.id, code, false);
-      setMsg("");
-      await reload();
-    } catch {
-      setMsg(tt("notEnough"));
+    const res = await fetch("/api/shop", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: profile.id, itemCode: code }),
+    });
+    if (!res.ok) {
+      const err = (await res.json()) as { error?: string };
+      setMsg(err.error === "credits" ? tt("notEnough") : tt("owned"));
+      return;
     }
+    setMsg("");
+    await reload();
   };
 
   const equip = async (code: string) => {
     if (!profile) return;
-    try {
-      await shopBuy(profile.id, code, true);
-      await reload();
-    } catch {
-      setMsg(tt("notEnough"));
-    }
+    await fetch("/api/shop", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: profile.id, itemCode: code, equip: true }),
+    });
+    await reload();
   };
 
   return (

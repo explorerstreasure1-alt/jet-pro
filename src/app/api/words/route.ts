@@ -5,6 +5,8 @@ import { and, eq, ilike, or } from "drizzle-orm";
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
+// May trigger the one-time lexicon seed — allow up to 60s on Vercel.
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   try {

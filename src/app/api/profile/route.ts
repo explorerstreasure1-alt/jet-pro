@@ -7,6 +7,8 @@ import { and, eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
+// First request may seed 52,500 lexicon rows — allow up to 60s on Vercel.
+export const maxDuration = 60;
 
 function applyStreak(last: string | null, current: number, today: string) {
   if (!last) return { streak: 1, lastPlayedDate: today };

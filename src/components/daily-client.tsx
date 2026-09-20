@@ -1,6 +1,5 @@
 "use client";
 
-import { claimDaily } from "@/lib/data";
 import { useRouter } from "next/navigation";
 import { AppFrame } from "./app-frame";
 import { useApp } from "./providers";
@@ -17,11 +16,11 @@ export function DailyClient() {
 
   const claim = async () => {
     if (!profile) return;
-    try {
-      await claimDaily(profile.id);
-    } catch {
-      /* not ready */
-    }
+    await fetch("/api/daily", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: profile.id }),
+    });
     await reload();
   };
 

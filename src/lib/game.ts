@@ -42,9 +42,14 @@ export function pickDistractors(pool: WordCard[], target: WordCard, n: number) {
   const bag = shuffle(same.length >= n ? same : rest);
   const out: WordCard[] = [];
   const seen = new Set<string>([target.conceptKey]);
+  const seenTerms = new Set<string>([target.term.toLowerCase()]);
   for (const w of bag) {
     if (seen.has(w.conceptKey)) continue;
+    // Some languages share one word across two concepts (e.g. RU "решение"
+    // for both decision & solution) — never show two identical cards.
+    if (seenTerms.has(w.term.toLowerCase())) continue;
     seen.add(w.conceptKey);
+    seenTerms.add(w.term.toLowerCase());
     out.push(w);
     if (out.length >= n) break;
   }

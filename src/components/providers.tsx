@@ -1,17 +1,9 @@
 "use client";
 
+import type { InventoryRow, ProfileRow, ProfileSettings } from "@/db/schema";
 import { t, type I18nKey } from "@/lib/i18n";
 import type { UiLang } from "@/lib/types";
 import { setMusic, setSfx } from "@/lib/audio";
-import {
-  defaultSettings,
-  fetchProfile,
-  getClientId,
-  patchProfile,
-  probeDb,
-} from "@/lib/data";
-import type { ProfileSettings } from "@/db/schema";
-import type { ClientProfile } from "@/lib/profile-types";
 import {
   createContext,
   useCallback,
@@ -22,9 +14,19 @@ import {
   type ReactNode,
 } from "react";
 
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+export type DailyState = {
+  date: string;
+  wordsCompleted: number;
+  scoreEarned: number;
+  claimed: boolean;
+  targetWords: number;
+  targetScore: number;
+};
+
+export type ClientProfile = ProfileRow & {
+  inventory: InventoryRow[];
+  achievements: string[];
+  daily: DailyState;
 };
 
 type Ctx = {
@@ -35,15 +37,33 @@ type Ctx = {
   reload: () => Promise<void>;
   patch: (body: Record<string, unknown>) => Promise<void>;
   setProfile: (p: ClientProfile | null) => void;
-  installEvent: BeforeInstallPromptEvent | null;
-  installable: boolean;
-  isIos: boolean;
-  installed: boolean;
 };
 
 const C = createContext<Ctx | null>(null);
 
-export { getClientId };
+export function getClientId() {
+  let id = localStorage.getItem("wi_client");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("wi_client", id);
+  }
+  return id;
+}
+
+const defaultSettings: ProfileSettings = {
+  uiLang: "tr",
+  fontScale: 1,
+  highContrast: false,
+  eyeProtect: false,
+  reducedMotion: false,
+  dyslexiaFont: false,
+  sfx: true,
+  music: true,
+  autoSpeak: true,
+  asr: true,
+  speakIn: "target",
+  voiceRate: 0.92,
+};
 
 function applyDom(s: ProfileSettings) {
   const el = document.documentElement;
@@ -56,47 +76,40 @@ function applyDom(s: ProfileSettings) {
   setMusic(s.music);
 }
 
-function detectIos() {
-  if (typeof navigator === "undefined") return false;
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
-}
-
 export function Providers({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [ready, setReady] = useState(false);
   const [boot, setBoot] = useState(true);
   const [bootPct, setBootPct] = useState(8);
-  const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState(false);
 
   const reload = useCallback(async () => {
-    const data = await fetchProfile();
+    const clientId = getClientId();
+    const res = await fetch(`/api/profile?clientId=${encodeURIComponent(clientId)}`);
+    if (!res.ok) throw new Error("profile");
+    const data = (await res.json()) as ClientProfile;
     setProfile(data);
     applyDom({ ...defaultSettings, ...data.settings });
   }, []);
 
-  const patch = useCallback(
-    async (body: Record<string, unknown>) => {
-      const updated = await patchProfile(body);
-      setProfile(updated);
-      applyDom({ ...defaultSettings, ...updated.settings });
-    },
-    [],
-  );
+  const patch = useCallback(async (body: Record<string, unknown>) => {
+    const clientId = getClientId();
+    const res = await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId, ...body }),
+    });
+    if (!res.ok) return;
+    await reload();
+  }, [reload]);
 
   useEffect(() => {
     const onPrompt = (e: Event) => {
       e.preventDefault();
-      setInstallEvent(e as BeforeInstallPromptEvent);
-    };
-    const onInstalled = () => {
-      setInstalled(true);
-      setInstallEvent(null);
+      (window as Window & { __wiPrompt?: Event }).__wiPrompt = e;
+      // Notify install buttons that a native prompt is available.
+      window.dispatchEvent(new CustomEvent("wi-can-install"));
     };
     window.addEventListener("beforeinstallprompt", onPrompt);
-    window.addEventListener("appinstalled", onInstalled);
-    const media = window.matchMedia("(display-mode: standalone)");
-    const installTimer = window.setTimeout(() => setInstalled(media.matches), 0);
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js", { updateViaCache: "none" })
@@ -106,11 +119,7 @@ export function Providers({ children }: { children: ReactNode }) {
         })
         .catch(() => undefined);
     }
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onPrompt);
-      window.removeEventListener("appinstalled", onInstalled);
-      window.clearTimeout(installTimer);
-    };
+    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
   }, []);
 
   useEffect(() => {
@@ -122,23 +131,19 @@ export function Providers({ children }: { children: ReactNode }) {
     }, 180);
 
     const start = window.setTimeout(() => {
-      probeDb()
+      reload()
         .catch(() => undefined)
-        .finally(() =>
-          reload()
-            .catch(() => undefined)
-            .finally(() => {
-              if (!live) return;
-              setReady(true);
-              const wait = seen ? 200 : 1400;
-              doneTimer = window.setTimeout(() => {
-                sessionStorage.setItem("wi_boot", "1");
-                setBootPct(100);
-                setBoot(false);
-              }, wait);
-              window.clearInterval(tick);
-            }),
-        );
+        .finally(() => {
+          if (!live) return;
+          setReady(true);
+          const wait = seen ? 250 : 1500;
+          doneTimer = window.setTimeout(() => {
+            sessionStorage.setItem("wi_boot", "1");
+            setBootPct(100);
+            setBoot(false);
+          }, wait);
+          window.clearInterval(tick);
+        });
     }, 0);
 
     return () => {
@@ -152,21 +157,9 @@ export function Providers({ children }: { children: ReactNode }) {
   const ui: UiLang = profile?.settings?.uiLang === "en" ? "en" : "tr";
   const tt = useCallback((key: I18nKey) => t(ui, key), [ui]);
 
-  const value = useMemo<Ctx>(
-    () => ({
-      profile,
-      ready,
-      ui,
-      tt,
-      reload,
-      patch,
-      setProfile,
-      installEvent,
-      installable: Boolean(installEvent),
-      isIos: detectIos(),
-      installed,
-    }),
-    [profile, ready, ui, tt, reload, patch, installEvent, installed],
+  const value = useMemo(
+    () => ({ profile, ready, ui, tt, reload, patch, setProfile }),
+    [profile, ready, ui, tt, reload, patch],
   );
 
   return (
@@ -185,9 +178,7 @@ function BootScreen({ pct }: { pct: number }) {
       />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent,rgba(0,0,0,0.75))]" />
       <div className="relative z-10 w-full max-w-md text-center">
-        <p className="font-display text-[10px] tracking-[0.45em] text-cyan-200/70">
-          HOLOGRAPHIC SUBCONSCIOUS PROTOCOL
-        </p>
+        <p className="font-display text-[10px] tracking-[0.45em] text-cyan-200/70">HOLOGRAPHIC SUBCONSCIOUS PROTOCOL</p>
         <h1 className="font-display glow-cyan mt-4 text-3xl font-bold tracking-[0.28em] text-[#7dfff0] sm:text-4xl">
           WORD INVADERS
         </h1>

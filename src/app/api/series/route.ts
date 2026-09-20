@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { seriesProgress, words } from "@/db/schema";
+import { profiles, seriesProgress, words } from "@/db/schema";
 import { SERIES_SIZE, SERIES_WAVES } from "@/lib/constants";
 import { count, eq } from "drizzle-orm";
 import { ensureSeeded } from "@/lib/ensure-seed";
@@ -38,10 +38,29 @@ export async function GET(req: NextRequest) {
     const allDone = seriesCount > 0 && completedCount >= seriesCount;
     const loop = seriesCount ? Math.floor(completedCount / seriesCount) + 1 : 1;
 
+    // CEFR-based head start: a learner's level opens a proportional slice of
+    // the 50 packs without grinding from zero — A1:10, A2:20, B1:30, B2:40, C1:50.
+    const [prof] = await db
+      .select({ cefrLevel: profiles.cefrLevel })
+      .from(profiles)
+      .where(eq(profiles.id, profileId));
+    const levelOrder = ["A1", "A2", "B1", "B2", "C1"];
+    const levelIdx = Math.max(0, levelOrder.indexOf(prof?.cefrLevel ?? "A1"));
+    const levelQuota = seriesCount
+      ? Math.min(seriesCount, Math.ceil(((levelIdx + 1) / levelOrder.length) * seriesCount))
+      : 0;
+
     const list = Array.from({ length: seriesCount }, (_, i) => {
       const n = i + 1;
       const p = map.get(n);
-      const unlocked = i === 0 || allDone || i < completedCount;
+      // Unlock rules:
+      //  - the CEFR quota opens the head slice (B1 → first 30) so the player
+      //    can start from ANY of those, in any order;
+      //  - beyond the quota, packs open sequentially: finishing the previous
+      //    one unlocks the next (B1 done → 31, 32 … up to C1 range);
+      //  - a full loop keeps everything open.
+      const prevCompleted = n > 1 && Boolean(map.get(n - 1)?.completed);
+      const unlocked = i === 0 || allDone || i < levelQuota || prevCompleted;
       return {
         id: `${prefix}${n}`,
         number: n,
@@ -56,7 +75,17 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return Response.json({ language, total, size: SERIES_SIZE, seriesCount, remainder, loop, list });
+    return Response.json({
+      language,
+      total,
+      size: SERIES_SIZE,
+      seriesCount,
+      remainder,
+      loop,
+      cefrLevel: prof?.cefrLevel ?? "A1",
+      levelQuota,
+      list,
+    });
   } catch (e) {
     console.error(e);
     return Response.json({ error: "series failed" }, { status: 500 });

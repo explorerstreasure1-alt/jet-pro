@@ -1,7 +1,6 @@
 "use client";
 
 import { CATEGORIES, LANGS, LEVELS, heatBand } from "@/lib/constants";
-import { addCustomWord, fetchWords } from "@/lib/data";
 import { speakTerm } from "@/lib/speech";
 import type { LangCode, WordCard } from "@/lib/types";
 import { useEffect, useState } from "react";
@@ -19,13 +18,17 @@ export function LexiconClient() {
   const [form, setForm] = useState({ term: "", translationTr: "", translationEn: "", level: "A1", category: "daily" });
 
   const load = () => {
-    fetchWords({
+    if (!profile) return;
+    const qs = new URLSearchParams({
       language: lang,
       level,
       category: cat,
       q,
-      profileId: profile ? String(profile.id) : undefined,
-    }).then(setWords);
+      profileId: String(profile.id),
+    });
+    fetch(`/api/words?${qs.toString()}`)
+      .then((r) => r.json())
+      .then((d: WordCard[]) => setWords(Array.isArray(d) ? d : []));
   };
 
   useEffect(() => {
@@ -34,7 +37,11 @@ export function LexiconClient() {
   }, [lang, level, cat, profile?.id]);
 
   const add = async () => {
-    await addCustomWord({ language: lang, ...form });
+    await fetch("/api/words", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ language: lang, ...form }),
+    });
     setOpen(false);
     setForm({ term: "", translationTr: "", translationEn: "", level: "A1", category: "daily" });
     load();

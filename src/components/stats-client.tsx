@@ -1,7 +1,6 @@
 "use client";
 
 import { ACHIEVEMENTS, padScore } from "@/lib/constants";
-import { fetchSessions } from "@/lib/data";
 import type { SessionRow } from "@/db/schema";
 import { useEffect, useState } from "react";
 import { AppFrame } from "./app-frame";
@@ -13,13 +12,9 @@ export function StatsClient() {
 
   useEffect(() => {
     if (!profile) return;
-    let live = true;
-    fetchSessions(profile.id).then((d) => {
-      if (live) setSessions(d);
-    });
-    return () => {
-      live = false;
-    };
+    fetch(`/api/sessions?profileId=${profile.id}`)
+      .then((r) => r.json())
+      .then((d: SessionRow[]) => setSessions(Array.isArray(d) ? d : []));
   }, [profile]);
 
   const hits = sessions.reduce((s, x) => s + x.wordsCorrect, 0);

@@ -6,9 +6,8 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     await db.execute(sql`select 1`);
-    return Response.json({ ok: true, db: true });
+    return Response.json({ ok: true });
   } catch {
-    // App remains healthy on local-first fallback when no DB is provisioned.
-    return Response.json({ ok: true, db: false, mode: "local" });
+    return Response.json({ ok: false }, { status: 500 });
   }
 }

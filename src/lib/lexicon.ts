@@ -170,9 +170,43 @@ export type SeedWord = {
 };
 
 type Pos = "noun" | "verb" | "adj" | "phrase";
+
+/**
+ * Semantic classes: a frame is only combined with a noun whose class it
+ * explicitly allows. This guarantees meaningful output in every language —
+ * "I drink water" exists, "I drink a rabbit/ticket" can never be generated.
+ */
+type SemClass = "food" | "drink" | "place" | "person" | "object" | "other";
+
+const CLASS_MAP: Record<string, SemClass> = {
+  // yiyecek — yenilebilir
+  bread: "food", apple: "food", breakfast: "food",
+  // içecek — içilebilir
+  water: "drink", coffee: "drink", tea: "drink", milk: "drink",
+  // yer — "nerede / burada / var mı" mantıklı
+  house: "place", restaurant: "place", airport: "place", hotel: "place",
+  city: "place", museum: "place", beach: "place", school: "place",
+  hospital: "place", forest: "place", mountain: "place", river: "place",
+  neighborhood: "place",
+  // kişi — "benim / nerede / tanıyorum" mantıklı
+  friend: "person", family: "person", doctor: "person", waiter: "person",
+  customer: "person",
+  // nesne — "yeni / benim / ihtiyacım var" mantıklı
+  ticket: "object", passport: "object", luggage: "object", phone: "object",
+  computer: "object", battery: "object", device: "object", clothes: "object",
+  taxi: "object", train: "object", bus: "object", password: "object",
+  application: "object", project: "object", contract: "object",
+};
+
+function conceptClass(key: string): SemClass {
+  return CLASS_MAP[key] ?? "other";
+}
+
 type Frame = {
   id: string;
   pos: Pos | "all";
+  /** for noun frames: which semantic classes may fill the slot */
+  allow?: SemClass[];
   shift: number;
   tr: (x: string) => string;
   en: (x: string) => string;
@@ -194,31 +228,36 @@ const FRAMES: Frame[] = [
   { id: "remember", pos: "all", shift: 1, tr: (x) => `${x} hatırla`, en: (x) => `I remember ${x}`, es: (x) => `recuerdo ${x}`, it: (x) => `ricordo ${x}`, ru: (x) => `я помню ${x}`, pt: (x) => `lembro ${x}`, fr: (x) => `je me souviens de ${x}`, de: (x) => `ich erinnere mich an ${x}` },
   { id: "practice", pos: "all", shift: 1, tr: (x) => `${x} çalış`, en: (x) => `I practice ${x}`, es: (x) => `practico ${x}`, it: (x) => `pratico ${x}`, ru: (x) => `я практикую ${x}`, pt: (x) => `pratico ${x}`, fr: (x) => `je pratique ${x}`, de: (x) => `ich übe ${x}` },
   { id: "learn_x", pos: "all", shift: 1, tr: (x) => `${x} öğren`, en: (x) => `I learn ${x}`, es: (x) => `aprendo ${x}`, it: (x) => `imparo ${x}`, ru: (x) => `я учу ${x}`, pt: (x) => `aprendo ${x}`, fr: (x) => `j'apprends ${x}`, de: (x) => `ich lerne ${x}` },
-  { id: "see_x", pos: "all", shift: 0, tr: (x) => `${x} görüyorum`, en: (x) => `I see ${x}`, es: (x) => `veo ${x}`, it: (x) => `vedo ${x}`, ru: (x) => `я вижу ${x}`, pt: (x) => `vejo ${x}`, fr: (x) => `je vois ${x}`, de: (x) => `ich sehe ${x}` },
-  { id: "know_x", pos: "all", shift: 1, tr: (x) => `${x} biliyorum`, en: (x) => `I know ${x}`, es: (x) => `conozco ${x}`, it: (x) => `conosco ${x}`, ru: (x) => `я знаю ${x}`, pt: (x) => `conheço ${x}`, fr: (x) => `je connais ${x}`, de: (x) => `ich kenne ${x}` },
-  { id: "again", pos: "all", shift: 0, tr: (x) => `${x} tekrar`, en: (x) => `${x} again`, es: (x) => `${x} otra vez`, it: (x) => `${x} di nuovo`, ru: (x) => `${x} снова`, pt: (x) => `${x} de novo`, fr: (x) => `${x} encore`, de: (x) => `${x} nochmal` },
-  { id: "now", pos: "all", shift: 0, tr: (x) => `şimdi ${x}`, en: (x) => `${x} now`, es: (x) => `${x} ahora`, it: (x) => `${x} adesso`, ru: (x) => `${x} сейчас`, pt: (x) => `${x} agora`, fr: (x) => `${x} maintenant`, de: (x) => `${x} jetzt` },
-  { id: "today_x", pos: "all", shift: 0, tr: (x) => `bugün ${x}`, en: (x) => `${x} today`, es: (x) => `${x} hoy`, it: (x) => `${x} oggi`, ru: (x) => `${x} сегодня`, pt: (x) => `${x} hoje`, fr: (x) => `${x} aujourd'hui`, de: (x) => `${x} heute` },
-  { id: "tomorrow_x", pos: "all", shift: 1, tr: (x) => `yarın ${x}`, en: (x) => `${x} tomorrow`, es: (x) => `${x} mañana`, it: (x) => `${x} domani`, ru: (x) => `${x} завтра`, pt: (x) => `${x} amanhã`, fr: (x) => `${x} demain`, de: (x) => `${x} morgen` },
-  { id: "here", pos: "all", shift: 1, tr: (x) => `${x} burada`, en: (x) => `${x} here`, es: (x) => `${x} aquí`, it: (x) => `${x} qui`, ru: (x) => `${x} здесь`, pt: (x) => `${x} aqui`, fr: (x) => `${x} ici`, de: (x) => `${x} hier` },
-  { id: "there", pos: "all", shift: 1, tr: (x) => `${x} orada`, en: (x) => `${x} there`, es: (x) => `${x} allí`, it: (x) => `${x} lì`, ru: (x) => `${x} там`, pt: (x) => `${x} lá`, fr: (x) => `${x} là-bas`, de: (x) => `${x} dort` },
   { id: "meaning", pos: "all", shift: 1, tr: (x) => `${x} anlamı`, en: (x) => `the meaning of ${x}`, es: (x) => `el significado de ${x}`, it: (x) => `il significato di ${x}`, ru: (x) => `значение ${x}`, pt: (x) => `o significado de ${x}`, fr: (x) => `le sens de ${x}`, de: (x) => `die Bedeutung von ${x}` },
 
-  { id: "need", pos: "noun", shift: 0, tr: (x) => `${x} ihtiyacım var`, en: (x) => `I need ${x}`, es: (x) => `necesito ${x}`, it: (x) => `ho bisogno di ${x}`, ru: (x) => `мне нужен ${x}`, pt: (x) => `preciso de ${x}`, fr: (x) => `j'ai besoin de ${x}`, de: (x) => `ich brauche ${x}` },
-  { id: "want", pos: "noun", shift: 0, tr: (x) => `${x} istiyorum`, en: (x) => `I want ${x}`, es: (x) => `quiero ${x}`, it: (x) => `voglio ${x}`, ru: (x) => `я хочу ${x}`, pt: (x) => `quero ${x}`, fr: (x) => `je veux ${x}`, de: (x) => `ich möchte ${x}` },
-  { id: "like", pos: "noun", shift: 0, tr: (x) => `${x} seviyorum`, en: (x) => `I like ${x}`, es: (x) => `me gusta ${x}`, it: (x) => `mi piace ${x}`, ru: (x) => `мне нравится ${x}`, pt: (x) => `gosto de ${x}`, fr: (x) => `j'aime ${x}`, de: (x) => `ich mag ${x}` },
-  { id: "where_is", pos: "noun", shift: 0, tr: (x) => `${x} nerede`, en: (x) => `where is ${x}`, es: (x) => `¿dónde está ${x}?`, it: (x) => `dov'è ${x}?`, ru: (x) => `где ${x}?`, pt: (x) => `onde é ${x}?`, fr: (x) => `où est ${x}?`, de: (x) => `wo ist ${x}?` },
-  { id: "this_is", pos: "noun", shift: 0, tr: (x) => `bu ${x}`, en: (x) => `this is ${x}`, es: (x) => `este es ${x}`, it: (x) => `questo è ${x}`, ru: (x) => `это ${x}`, pt: (x) => `isto é ${x}`, fr: (x) => `c'est ${x}`, de: (x) => `das ist ${x}` },
-  { id: "my", pos: "noun", shift: 0, tr: (x) => `benim ${x}`, en: (x) => `my ${x}`, es: (x) => `mi ${x}`, it: (x) => `il mio ${x}`, ru: (x) => `мой ${x}`, pt: (x) => `meu ${x}`, fr: (x) => `mon ${x}`, de: (x) => `mein ${x}` },
-  { id: "your", pos: "noun", shift: 0, tr: (x) => `senin ${x}`, en: (x) => `your ${x}`, es: (x) => `tu ${x}`, it: (x) => `il tuo ${x}`, ru: (x) => `ваш ${x}`, pt: (x) => `seu ${x}`, fr: (x) => `votre ${x}`, de: (x) => `dein ${x}` },
-  { id: "the", pos: "noun", shift: 0, tr: (x) => x, en: (x) => `the ${x}`, es: (x) => `el/la ${x}`, it: (x) => `il/la ${x}`, ru: (x) => x, pt: (x) => `o/a ${x}`, fr: (x) => `le/la ${x}`, de: (x) => `der/die/das ${x}` },
-  { id: "a", pos: "noun", shift: 0, tr: (x) => `bir ${x}`, en: (x) => `a ${x}`, es: (x) => `un/una ${x}`, it: (x) => `un/una ${x}`, ru: (x) => x, pt: (x) => `um/uma ${x}`, fr: (x) => `un/une ${x}`, de: (x) => `ein/eine ${x}` },
-  { id: "have_you", pos: "noun", shift: 1, tr: (x) => `${x} var mı`, en: (x) => `do you have ${x}?`, es: (x) => `¿tiene ${x}?`, it: (x) => `ha ${x}?`, ru: (x) => `у вас есть ${x}?`, pt: (x) => `você tem ${x}?`, fr: (x) => `avez-vous ${x}?`, de: (x) => `haben Sie ${x}?` },
-  { id: "please_x", pos: "noun", shift: 0, tr: (x) => `${x} lütfen`, en: (x) => `${x}, please`, es: (x) => `${x}, por favor`, it: (x) => `${x}, per favore`, ru: (x) => `${x}, пожалуйста`, pt: (x) => `${x}, por favor`, fr: (x) => `${x}, s'il vous plaît`, de: (x) => `${x}, bitte` },
-  { id: "is_there", pos: "noun", shift: 1, tr: (x) => `${x} var mı`, en: (x) => `is there ${x}?`, es: (x) => `¿hay ${x}?`, it: (x) => `c'è ${x}?`, ru: (x) => `есть ${x}?`, pt: (x) => `há ${x}?`, fr: (x) => `y a-t-il ${x}?`, de: (x) => `gibt es ${x}?` },
-  { id: "how_much_x", pos: "noun", shift: 1, tr: (x) => `${x} ne kadar`, en: (x) => `how much is ${x}?`, es: (x) => `¿cuánto cuesta ${x}?`, it: (x) => `quanto costa ${x}?`, ru: (x) => `сколько стоит ${x}?`, pt: (x) => `quanto custa ${x}?`, fr: (x) => `combien coûte ${x}?`, de: (x) => `was kostet ${x}?` },
-  { id: "new_x", pos: "noun", shift: 1, tr: (x) => `yeni ${x}`, en: (x) => `new ${x}`, es: (x) => `${x} nuevo`, it: (x) => `${x} nuovo`, ru: (x) => `новый ${x}`, pt: (x) => `${x} novo`, fr: (x) => `${x} nouveau`, de: (x) => `neues ${x}` },
-  { id: "good_x", pos: "noun", shift: 1, tr: (x) => `iyi ${x}`, en: (x) => `good ${x}`, es: (x) => `buen ${x}`, it: (x) => `buon ${x}`, ru: (x) => `хороший ${x}`, pt: (x) => `bom ${x}`, fr: (x) => `bon ${x}`, de: (x) => `gutes ${x}` },
+  // Zaman zarfları yalnızca fiillerle: "bugün yemek ye" mantıklı, "bugün elma" değil.
+  { id: "again", pos: "verb", shift: 0, tr: (x) => `tekrar ${x}`, en: (x) => `${x} again`, es: (x) => `${x} otra vez`, it: (x) => `${x} di nuovo`, ru: (x) => `${x} снова`, pt: (x) => `${x} de novo`, fr: (x) => `${x} encore`, de: (x) => `nochmal ${x}` },
+  { id: "now", pos: "verb", shift: 0, tr: (x) => `şimdi ${x}`, en: (x) => `${x} now`, es: (x) => `${x} ahora`, it: (x) => `${x} adesso`, ru: (x) => `${x} сейчас`, pt: (x) => `${x} agora`, fr: (x) => `${x} maintenant`, de: (x) => `jetzt ${x}` },
+  { id: "today_x", pos: "verb", shift: 0, tr: (x) => `bugün ${x}`, en: (x) => `${x} today`, es: (x) => `${x} hoy`, it: (x) => `${x} oggi`, ru: (x) => `${x} сегодня`, pt: (x) => `${x} hoje`, fr: (x) => `${x} aujourd'hui`, de: (x) => `heute ${x}` },
+  { id: "tomorrow_x", pos: "verb", shift: 1, tr: (x) => `yarın ${x}`, en: (x) => `${x} tomorrow`, es: (x) => `${x} mañana`, it: (x) => `${x} domani`, ru: (x) => `${x} завтра`, pt: (x) => `${x} amanhã`, fr: (x) => `demain ${x}` , de: (x) => `morgen ${x}` },
+
+  // Yeme/içme yalnız uygun sınıfla: saçma birleşim üretilemez.
+  { id: "eat_x", pos: "noun", allow: ["food"], shift: 0, tr: (x) => `${x} yiyorum`, en: (x) => `I eat ${x}`, es: (x) => `como ${x}`, it: (x) => `mangio ${x}`, ru: (x) => `я ем ${x}`, pt: (x) => `como ${x}`, fr: (x) => `je mange ${x}`, de: (x) => `ich esse ${x}` },
+  { id: "drink_x", pos: "noun", allow: ["drink"], shift: 0, tr: (x) => `${x} içiyorum`, en: (x) => `I drink ${x}`, es: (x) => `bebo ${x}`, it: (x) => `bevo ${x}`, ru: (x) => `я пью ${x}`, pt: (x) => `bebo ${x}`, fr: (x) => `je bois ${x}`, de: (x) => `ich trinke ${x}` },
+  { id: "have_x", pos: "noun", allow: ["object", "food", "drink"], shift: 0, tr: (x) => `${x} var bende`, en: (x) => `I have ${x}`, es: (x) => `tengo ${x}`, it: (x) => `ho ${x}`, ru: (x) => `у меня есть ${x}`, pt: (x) => `tenho ${x}`, fr: (x) => `j'ai ${x}`, de: (x) => `ich habe ${x}` },
+
+  { id: "need", pos: "noun", allow: ["object", "food", "drink"], shift: 0, tr: (x) => `${x} ihtiyacım var`, en: (x) => `I need ${x}`, es: (x) => `necesito ${x}`, it: (x) => `ho bisogno di ${x}`, ru: (x) => `мне нужен ${x}`, pt: (x) => `preciso de ${x}`, fr: (x) => `j'ai besoin de ${x}`, de: (x) => `ich brauche ${x}` },
+  { id: "want", pos: "noun", allow: ["object", "food", "drink"], shift: 0, tr: (x) => `${x} istiyorum`, en: (x) => `I want ${x}`, es: (x) => `quiero ${x}`, it: (x) => `voglio ${x}`, ru: (x) => `я хочу ${x}`, pt: (x) => `quero ${x}`, fr: (x) => `je veux ${x}`, de: (x) => `ich möchte ${x}` },
+  { id: "like", pos: "noun", allow: ["food", "drink", "place", "object"], shift: 0, tr: (x) => `${x} seviyorum`, en: (x) => `I like ${x}`, es: (x) => `me gusta ${x}`, it: (x) => `mi piace ${x}`, ru: (x) => `мне нравится ${x}`, pt: (x) => `gosto de ${x}`, fr: (x) => `j'aime ${x}`, de: (x) => `ich mag ${x}` },
+  { id: "where_is", pos: "noun", allow: ["place", "person", "object"], shift: 0, tr: (x) => `${x} nerede`, en: (x) => `where is ${x}`, es: (x) => `¿dónde está ${x}?`, it: (x) => `dov'è ${x}?`, ru: (x) => `где ${x}?`, pt: (x) => `onde é ${x}?`, fr: (x) => `où est ${x}?`, de: (x) => `wo ist ${x}?` },
+  { id: "this_is", pos: "noun", allow: ["place", "person", "object", "food", "drink"], shift: 0, tr: (x) => `bu ${x}`, en: (x) => `this is ${x}`, es: (x) => `este es ${x}`, it: (x) => `questo è ${x}`, ru: (x) => `это ${x}`, pt: (x) => `isto é ${x}`, fr: (x) => `c'est ${x}`, de: (x) => `das ist ${x}` },
+  { id: "my", pos: "noun", allow: ["person", "object", "food", "drink"], shift: 0, tr: (x) => `benim ${x}`, en: (x) => `my ${x}`, es: (x) => `mi ${x}`, it: (x) => `il mio ${x}`, ru: (x) => `мой ${x}`, pt: (x) => `meu ${x}`, fr: (x) => `mon ${x}`, de: (x) => `mein ${x}` },
+  { id: "your", pos: "noun", allow: ["person", "object"], shift: 0, tr: (x) => `senin ${x}`, en: (x) => `your ${x}`, es: (x) => `tu ${x}`, it: (x) => `il tuo ${x}`, ru: (x) => `ваш ${x}`, pt: (x) => `seu ${x}`, fr: (x) => `votre ${x}`, de: (x) => `dein ${x}` },
+  { id: "see_x", pos: "noun", allow: ["person", "place", "object"], shift: 0, tr: (x) => `${x} görüyorum`, en: (x) => `I see ${x}`, es: (x) => `veo ${x}`, it: (x) => `vedo ${x}`, ru: (x) => `я вижу ${x}`, pt: (x) => `vejo ${x}`, fr: (x) => `je vois ${x}`, de: (x) => `ich sehe ${x}` },
+  { id: "know_x", pos: "noun", allow: ["person", "place"], shift: 1, tr: (x) => `${x} biliyorum`, en: (x) => `I know ${x}`, es: (x) => `conozco ${x}`, it: (x) => `conosco ${x}`, ru: (x) => `я знаю ${x}`, pt: (x) => `conheço ${x}`, fr: (x) => `je connais ${x}`, de: (x) => `ich kenne ${x}` },
+  { id: "here", pos: "noun", allow: ["place", "person", "object"], shift: 1, tr: (x) => `${x} burada`, en: (x) => `${x} is here`, es: (x) => `${x} está aquí`, it: (x) => `${x} è qui`, ru: (x) => `${x} здесь`, pt: (x) => `${x} está aqui`, fr: (x) => `${x} est ici`, de: (x) => `${x} ist hier` },
+  { id: "there", pos: "noun", allow: ["place", "person", "object"], shift: 1, tr: (x) => `${x} orada`, en: (x) => `${x} is there`, es: (x) => `${x} está allí`, it: (x) => `${x} è lì`, ru: (x) => `${x} там`, pt: (x) => `${x} está lá`, fr: (x) => `${x} est là-bas`, de: (x) => `${x} ist dort` },
+  { id: "have_you", pos: "noun", allow: ["object", "food", "drink"], shift: 1, tr: (x) => `${x} var mı`, en: (x) => `do you have ${x}?`, es: (x) => `¿tiene ${x}?`, it: (x) => `ha ${x}?`, ru: (x) => `у вас есть ${x}?`, pt: (x) => `você tem ${x}?`, fr: (x) => `avez-vous ${x}?`, de: (x) => `haben Sie ${x}?` },
+  { id: "please_x", pos: "noun", allow: ["food", "drink", "object"], shift: 0, tr: (x) => `${x} lütfen`, en: (x) => `${x}, please`, es: (x) => `${x}, por favor`, it: (x) => `${x}, per favore`, ru: (x) => `${x}, пожалуйста`, pt: (x) => `${x}, por favor`, fr: (x) => `${x}, s'il vous plaît`, de: (x) => `${x}, bitte` },
+  { id: "is_there", pos: "noun", allow: ["place", "food", "drink", "object"], shift: 1, tr: (x) => `${x} var mı`, en: (x) => `is there ${x}?`, es: (x) => `¿hay ${x}?`, it: (x) => `c'è ${x}?`, ru: (x) => `есть ${x}?`, pt: (x) => `há ${x}?`, fr: (x) => `y a-t-il ${x}?`, de: (x) => `gibt es ${x}?` },
+  { id: "how_much_x", pos: "noun", allow: ["food", "drink", "object"], shift: 1, tr: (x) => `${x} ne kadar`, en: (x) => `how much is ${x}?`, es: (x) => `¿cuánto cuesta ${x}?`, it: (x) => `quanto costa ${x}?`, ru: (x) => `сколько стоит ${x}?`, pt: (x) => `quanto custa ${x}?`, fr: (x) => `combien coûte ${x}?`, de: (x) => `was kostet ${x}?` },
+  { id: "new_x", pos: "noun", allow: ["object"], shift: 1, tr: (x) => `yeni ${x}`, en: (x) => `new ${x}`, es: (x) => `${x} nuevo`, it: (x) => `${x} nuovo`, ru: (x) => `новый ${x}`, pt: (x) => `${x} novo`, fr: (x) => `${x} nouveau`, de: (x) => `neues ${x}` },
+  { id: "good_x", pos: "noun", allow: ["food", "drink", "place", "object"], shift: 1, tr: (x) => `iyi ${x}`, en: (x) => `good ${x}`, es: (x) => `buen ${x}`, it: (x) => `buon ${x}`, ru: (x) => `хороший ${x}`, pt: (x) => `bom ${x}`, fr: (x) => `bon ${x}`, de: (x) => `gutes ${x}` },
 
   { id: "want_to", pos: "verb", shift: 0, tr: (x) => `${x} istiyorum`, en: (x) => `I want to ${x}`, es: (x) => `quiero ${x}`, it: (x) => `voglio ${x}`, ru: (x) => `я хочу ${x}`, pt: (x) => `quero ${x}`, fr: (x) => `je veux ${x}`, de: (x) => `ich möchte ${x}` },
   { id: "need_to", pos: "verb", shift: 0, tr: (x) => `${x} gerekiyor`, en: (x) => `I need to ${x}`, es: (x) => `necesito ${x}`, it: (x) => `devo ${x}`, ru: (x) => `мне нужно ${x}`, pt: (x) => `preciso ${x}`, fr: (x) => `je dois ${x}`, de: (x) => `ich muss ${x}` },
@@ -248,7 +287,7 @@ const FRAMES: Frame[] = [
 function conceptPos(tuple: ConceptTuple): Pos {
   const key = tuple[0];
   const cat = tuple[2];
-  if (cat === "verbs" || key.startsWith("to_")) return "verb";
+  if (cat === "verbs" || key.startsWith("to_") || key === "download") return "verb";
   if (cat === "emotions" || ["hungry", "delicious", "cool", "awesome", "substantial", "comprehensive", "rigorous", "ambiguous", "unprecedented"].includes(key)) return "adj";
   if (cat === "phrases") return "phrase";
   return "noun";
@@ -404,13 +443,22 @@ export function expandLexicon(): SeedWord[] {
         isCustom: false,
       });
     }
+    const klass = conceptClass(key);
     for (const frame of FRAMES) {
       if (frame.pos !== "all" && frame.pos !== pos) continue;
+      // Semantic gate: noun frames only combine with allowed classes, so
+      // every generated line is meaningful in all seven languages.
+      if (frame.pos === "noun" && !(frame.allow ?? []).includes(klass)) continue;
       for (const lang of LANG_INDEX) {
+        // English verbs are stored as citation form "to drink"; inside any
+        // frame the bare infinitive is required ("I want to drink",
+        // "listen to drink" — never "…to to drink").
+        const slot =
+          pos === "verb" && lang === "en" ? terms[lang].replace(/^to /, "") : terms[lang];
         add(lang, {
           conceptKey: `${key}__${frame.id}`,
           language: lang,
-          term: frame[lang](terms[lang]),
+          term: frame[lang](slot),
           translationTr: frame.tr(tr),
           translationEn: frame.en(en),
           level: shiftLevel(level, frame.shift),
@@ -440,7 +488,7 @@ export function expandLexicon(): SeedWord[] {
       }
     }
     n += 1;
-    if (n > 9000) break;
+    if (n > 9999) break;
   }
 
   const rows: SeedWord[] = [];

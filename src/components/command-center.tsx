@@ -8,8 +8,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Starfield } from "./starfield";
-import { useApp } from "./providers";
 import { InstallButton } from "./install-button";
+import { useApp } from "./providers";
 import { AlienSprite, ShipSprite } from "./sprites";
 
 export function CommandCenter() {
@@ -52,7 +52,10 @@ export function CommandCenter() {
     sfxUi();
     primeSpeech();
     await resumeAudio();
-    await patch({ learningLang: lang, cefrLevel: level, category: cat });
+    // Note: the mission's level is a per-game choice; it must NOT overwrite
+    // the profile's CEFR level (that one drives the series unlock quota and
+    // is set explicitly in Settings).
+    await patch({ learningLang: lang, category: cat });
     const qs = new URLSearchParams({ lang, level, category: cat, mode: "arcade" });
     router.push(`/play?${qs.toString()}`);
   };
@@ -81,8 +84,7 @@ export function CommandCenter() {
               <p className="font-display text-sm tracking-[0.16em] text-cyan-100">{profile?.callsign ?? "—"}</p>
             </div>
           </div>
-          <div className="ml-auto flex items-center gap-1.5">
-            <InstallButton />
+          <div className="ml-auto flex gap-1.5">
             <StatChip label={tt("credits")} value={String(profile?.credits ?? 0)} gold />
             <StatChip label={tt("streak")} value={`${profile?.streak ?? 0}d`} />
             <StatChip label={tt("highScore")} value={padScore(profile?.highScore ?? 0)} />
@@ -119,6 +121,7 @@ export function CommandCenter() {
           <p className="mt-3 text-[11px] tracking-[0.2em] text-white/40">
             {lang.toUpperCase()} · {level} · {cat === "all" ? tt("allCats") : cat}
           </p>
+          <InstallButton />
         </main>
 
         {daily && (
