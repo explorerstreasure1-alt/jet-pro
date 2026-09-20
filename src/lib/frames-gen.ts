@@ -46,6 +46,27 @@ const NOUN_LIKE: Domain[] = ["food", "place", "object", "person", "nature", "eve
 const BUYABLE: Domain[] = ["food", "object", "place", "abstract"];
 const META_WORD = { num: true, v: true, a: true, ph: true };
 
+function trStem(infinitive: string): string {
+  return infinitive.replace(/(mek|mak)$/i, "");
+}
+
+function trSoftStem(infinitive: string): string {
+  return trStem(infinitive).replace(/t$/, "d").replace(/k$/, "ğ").replace(/ç$/, "c");
+}
+
+function trFront(infinitive: string): boolean {
+  const vowels = trStem(infinitive).match(/[aeıioöuü]/gi);
+  return /[eiöü]/i.test(vowels?.at(-1) ?? "");
+}
+
+function trFuture(infinitive: string): string {
+  return `${trSoftStem(infinitive)}${trFront(infinitive) ? "e" : "a"}ceğim`;
+}
+
+function trAbility(infinitive: string): string {
+  return `${trSoftStem(infinitive)}${trFront(infinitive) ? "e" : "a"}bilirim`;
+}
+
 function f(partial: Frame): Frame {
   return partial;
 }
@@ -59,8 +80,8 @@ const META: Frame[] = [
   f({ id: "write", kind: "meta", pos: "all", shift: 1, ...META_WORD, tr: (x) => `${x} yaz`, en: (x) => `write ${x}`, es: (x) => `escribe ${x}`, it: (x) => `scrivi ${x}`, ru: (x) => `напишите ${x}`, pt: (x) => `escreva ${x}`, fr: (x) => `écrivez ${x}`, de: (x) => `schreib ${x}` }),
   f({ id: "read", kind: "meta", pos: "all", shift: 1, ...META_WORD, tr: (x) => `${x} oku`, en: (x) => `read ${x}`, es: (x) => `lee ${x}`, it: (x) => `leggi ${x}`, ru: (x) => `читайте ${x}`, pt: (x) => `leia ${x}`, fr: (x) => `lisez ${x}`, de: (x) => `lies ${x}` }),
   f({ id: "again", kind: "meta", pos: "all", shift: 0, ...META_WORD, tr: (x) => `${x} tekrar`, en: (x) => `${x} again`, es: (x) => `${x} otra vez`, it: (x) => `${x} di nuovo`, ru: (x) => `${x} снова`, pt: (x) => `${x} de novo`, fr: (x) => `${x} encore`, de: (x) => `${x} nochmal` }),
-  f({ id: "practice", kind: "meta", pos: "all", shift: 1, num: true, v: true, a: true, ph: true, tr: (x) => `${x} çalış`, en: (x) => `I practice ${x}`, es: (x) => `practico ${x}`, it: (x) => `pratico ${x}`, ru: (x) => `я практикую ${x}`, pt: (x) => `pratico ${x}`, fr: (x) => `je pratique ${x}`, de: (x) => `ich übe ${x}` }),
-  f({ id: "meaning", kind: "meta", pos: "all", shift: 1, num: true, v: true, a: true, ph: true, tr: (x) => `${x} anlamı`, en: (x) => `the meaning of ${x}`, es: (x) => `el significado de ${x}`, it: (x) => `il significato di ${x}`, ru: (x) => `значение ${x}`, pt: (x) => `o significado de ${x}`, fr: (x) => `le sens de ${x}`, de: (x) => `die Bedeutung von ${x}` }),
+  f({ id: "practice", kind: "meta", pos: "all", shift: 1, num: true, v: true, a: true, ph: false, tr: (x) => `${x} çalış`, en: (x) => `I practice ${x}`, es: (x) => `practico ${x}`, it: (x) => `pratico ${x}`, ru: (x) => `я практикую ${x}`, pt: (x) => `pratico ${x}`, fr: (x) => `je pratique ${x}`, de: (x) => `ich übe ${x}` }),
+  f({ id: "meaning", kind: "meta", pos: "all", shift: 1, num: true, v: true, a: true, ph: false, tr: (x) => `${x} anlamı`, en: (x) => `the meaning of ${x}`, es: (x) => `el significado de ${x}`, it: (x) => `il significato di ${x}`, ru: (x) => `значение ${x}`, pt: (x) => `o significado de ${x}`, fr: (x) => `le sens de ${x}`, de: (x) => `die Bedeutung von ${x}` }),
 
   // Sentence frames for nouns/verbs with semantic domains.
   f({ id: "remember", kind: "meta", pos: "all", shift: 1, a: false, ph: false, v: false, d: NOUN_LIKE, tr: (x) => `${x} hatırla`, en: (x) => `I remember ${x}`, es: (x) => `recuerdo ${x}`, it: (x) => `ricordo ${x}`, ru: (x) => `я помню ${x}`, pt: (x) => `lembro ${x}`, fr: (x) => `je me souviens de ${x}`, de: (x) => `ich erinnere mich an ${x}` }),
@@ -78,12 +99,10 @@ const NOUN: Frame[] = [
   f({ id: "need", kind: "noun", pos: "noun", shift: 0, d: NOUN_LIKE, tr: (x) => `${x} ihtiyacım var`, en: (x) => `I need ${x}`, es: (x) => `necesito ${x}`, it: (x) => `ho bisogno di ${x}`, ru: (x) => `мне нужен ${x}`, pt: (x) => `preciso de ${x}`, fr: (x) => `j'ai besoin de ${x}`, de: (x) => `ich brauche ${x}` }),
   f({ id: "want", kind: "noun", pos: "noun", shift: 0, d: NOUN_LIKE, tr: (x) => `${x} istiyorum`, en: (x) => `I want ${x}`, es: (x) => `quiero ${x}`, it: (x) => `voglio ${x}`, ru: (x) => `я хочу ${x}`, pt: (x) => `quero ${x}`, fr: (x) => `je veux ${x}`, de: (x) => `ich möchte ${x}` }),
   f({ id: "like", kind: "noun", pos: "noun", shift: 0, d: NOUN_LIKE, tr: (x) => `${x} seviyorum`, en: (x) => `I like ${x}`, es: (x) => `me gusta ${x}`, it: (x) => `mi piace ${x}`, ru: (x) => `мне нравится ${x}`, pt: (x) => `gosto de ${x}`, fr: (x) => `j'aime ${x}`, de: (x) => `ich mag ${x}` }),
-  f({ id: "where_is", kind: "noun", pos: "noun", shift: 0, d: ["place", "object", "person", "food", "nature"], tr: (x) => `${x} nerede`, en: (x) => `where is ${x}`, es: (x) => `¿dónde está ${x}?`, it: (x) => `dov'è ${x}?`, ru: (x) => `где ${x}?`, pt: (x) => `onde é ${x}?`, fr: (x) => `où est ${x}?`, de: (x) => `wo ist ${x}?` }),
-  f({ id: "this_is", kind: "noun", pos: "noun", shift: 0, d: CONCRETE, tr: (x) => `bu ${x}`, en: (x) => `this is ${x}`, es: (x) => `este es ${x}`, it: (x) => `questo è ${x}`, ru: (x) => `это ${x}`, pt: (x) => `isto é ${x}`, fr: (x) => `c'est ${x}`, de: (x) => `das ist ${x}` }),
+  f({ id: "where_is", kind: "noun", pos: "noun", shift: 0, d: ["place", "object", "person", "food", "nature"], tr: (x) => `${x} nerede`, en: (x) => `where is ${x}`, es: (x) => `¿dónde está ${x}?`, it: (x) => `dov'è ${x}?`, ru: (x) => `где ${x}?`, pt: (x) => `onde fica ${x}?`, fr: (x) => `où est ${x}?`, de: (x) => `wo ist ${x}?` }),
+  f({ id: "this_is", kind: "noun", pos: "noun", shift: 0, d: CONCRETE, tr: (x) => `bu ${x}`, en: (x) => `this is ${x}`, es: (x) => `esto es ${x}`, it: (x) => `questo è ${x}`, ru: (x) => `это ${x}`, pt: (x) => `isto é ${x}`, fr: (x) => `c'est ${x}`, de: (x) => `das ist ${x}` }),
   f({ id: "my", kind: "noun", pos: "noun", shift: 0, d: NOUN_LIKE, tr: (x) => `benim ${x}`, en: (x) => `my ${x}`, es: (x) => `mi ${x}`, it: (x) => `il mio ${x}`, ru: (x) => `мой ${x}`, pt: (x) => `meu ${x}`, fr: (x) => `mon ${x}`, de: (x) => `mein ${x}` }),
   f({ id: "your", kind: "noun", pos: "noun", shift: 0, d: NOUN_LIKE, tr: (x) => `senin ${x}`, en: (x) => `your ${x}`, es: (x) => `tu ${x}`, it: (x) => `il tuo ${x}`, ru: (x) => `ваш ${x}`, pt: (x) => `seu ${x}`, fr: (x) => `votre ${x}`, de: (x) => `dein ${x}` }),
-  f({ id: "the", kind: "noun", pos: "noun", shift: 0, d: NOUN_LIKE, tr: (x) => x, en: (x) => `the ${x}`, es: (x) => `el/la ${x}`, it: (x) => `il/la ${x}`, ru: (x) => x, pt: (x) => `o/a ${x}`, fr: (x) => `le/la ${x}`, de: (x) => `der/die/das ${x}` }),
-  f({ id: "a", kind: "noun", pos: "noun", shift: 0, d: NOUN_LIKE, tr: (x) => `bir ${x}`, en: (x) => `a ${x}`, es: (x) => `un/una ${x}`, it: (x) => `un/una ${x}`, ru: (x) => x, pt: (x) => `um/uma ${x}`, fr: (x) => `un/une ${x}`, de: (x) => `ein/eine ${x}` }),
   f({ id: "have_you", kind: "noun", pos: "noun", shift: 1, d: BUYABLE, tr: (x) => `${x} var mı`, en: (x) => `do you have ${x}?`, es: (x) => `¿tiene ${x}?`, it: (x) => `ha ${x}?`, ru: (x) => `у вас есть ${x}?`, pt: (x) => `você tem ${x}?`, fr: (x) => `avez-vous ${x}?`, de: (x) => `haben Sie ${x}?` }),
   f({ id: "please_x", kind: "noun", pos: "noun", shift: 0, d: ["food", "object", "place", "event", "person"], tr: (x) => `${x} lütfen`, en: (x) => `${x}, please`, es: (x) => `${x}, por favor`, it: (x) => `${x}, per favore`, ru: (x) => `${x}, пожалуйста`, pt: (x) => `${x}, por favor`, fr: (x) => `${x}, s'il vous plaît`, de: (x) => `${x}, bitte` }),
   f({ id: "is_there", kind: "noun", pos: "noun", shift: 1, d: ["food", "place", "object", "nature", "event"], tr: (x) => `${x} var mı`, en: (x) => `is there ${x}?`, es: (x) => `¿hay ${x}?`, it: (x) => `c'è ${x}?`, ru: (x) => `есть ${x}?`, pt: (x) => `há ${x}?`, fr: (x) => `y a-t-il ${x}?`, de: (x) => `gibt es ${x}?` }),
@@ -95,16 +114,16 @@ const NOUN: Frame[] = [
 const VERB: Frame[] = [
   f({ id: "want_to", kind: "verb", pos: "verb", shift: 0, tr: (x) => `${x} istiyorum`, en: (x) => `I want to ${x}`, es: (x) => `quiero ${x}`, it: (x) => `voglio ${x}`, ru: (x) => `я хочу ${x}`, pt: (x) => `quero ${x}`, fr: (x) => `je veux ${x}`, de: (x) => `ich möchte ${x}` }),
   f({ id: "need_to", kind: "verb", pos: "verb", shift: 0, tr: (x) => `${x} gerekiyor`, en: (x) => `I need to ${x}`, es: (x) => `necesito ${x}`, it: (x) => `devo ${x}`, ru: (x) => `мне нужно ${x}`, pt: (x) => `preciso ${x}`, fr: (x) => `je dois ${x}`, de: (x) => `ich muss ${x}` }),
-  f({ id: "like_to", kind: "verb", pos: "verb", shift: 0, tr: (x) => `${x} seviyorum`, en: (x) => `I like to ${x}`, es: (x) => `me gusta ${x}`, it: (x) => `mi piace ${x}`, ru: (x) => `мне нравится ${x}`, pt: (x) => `gosto de ${x}`, fr: (x) => `j'aime ${x}`, de: (x) => `ich mag es zu ${x}` }),
+  f({ id: "like_to", kind: "verb", pos: "verb", shift: 0, tr: (x) => `${trStem(x)}meyi seviyorum`, en: (x) => `I like to ${x}`, es: (x) => `me gusta ${x}`, it: (x) => `mi piace ${x}`, ru: (x) => `мне нравится ${x}`, pt: (x) => `gosto de ${x}`, fr: (x) => `j'aime ${x}`, de: (x) => `ich mag es zu ${x}` }),
   f({ id: "can_you", kind: "verb", pos: "verb", shift: 0, tr: (x) => `${x} misin`, en: (x) => `can you ${x}?`, es: (x) => `¿puede ${x}?`, it: (x) => `può ${x}?`, ru: (x) => `вы можете ${x}?`, pt: (x) => `você pode ${x}?`, fr: (x) => `pouvez-vous ${x}?`, de: (x) => `können Sie ${x}?` }),
-  f({ id: "will", kind: "verb", pos: "verb", shift: 1, tr: (x) => `${x}eceğim`, en: (x) => `I will ${x}`, es: (x) => `voy a ${x}`, it: (x) => `ho intenzione di ${x}`, ru: (x) => `я буду ${x}`, pt: (x) => `vou ${x}`, fr: (x) => `je vais ${x}`, de: (x) => `ich werde ${x}` }),
-  f({ id: "can", kind: "verb", pos: "verb", shift: 0, tr: (x) => `${x}ebilirim`, en: (x) => `I can ${x}`, es: (x) => `puedo ${x}`, it: (x) => `posso ${x}`, ru: (x) => `я могу ${x}`, pt: (x) => `posso ${x}`, fr: (x) => `je peux ${x}`, de: (x) => `ich kann ${x}` }),
-  f({ id: "should_we", kind: "verb", pos: "verb", shift: 1, tr: (x) => `${x}meliyiz`, en: (x) => `we should ${x}`, es: (x) => `deberíamos ${x}`, it: (x) => `dovremmo ${x}`, ru: (x) => `нам стоит ${x}`, pt: (x) => `devemos ${x}`, fr: (x) => `nous devrions ${x}`, de: (x) => `wir sollten ${x}` }),
-  f({ id: "lets", kind: "verb", pos: "verb", shift: 1, tr: (x) => `hadi ${x}`, en: (x) => `let's ${x}`, es: (x) => `vamos a ${x}`, it: (x) => `andiamo a ${x}`, ru: (x) => `давай ${x}`, pt: (x) => `vamos ${x}`, fr: (x) => `allons ${x}`, de: (x) => `lass uns ${x}` }),
-  f({ id: "dont", kind: "verb", pos: "verb", shift: 1, tr: (x) => `${x}me`, en: (x) => `don't ${x}`, es: (x) => `no ${x}`, it: (x) => `non ${x}`, ru: (x) => `не ${x}`, pt: (x) => `não ${x}`, fr: (x) => `ne pas ${x}`, de: (x) => `nicht ${x}` }),
-  f({ id: "you_should", kind: "verb", pos: "verb", shift: 1, tr: (x) => `${x}melisin`, en: (x) => `you should ${x}`, es: (x) => `debería ${x}`, it: (x) => `dovrebbe ${x}`, ru: (x) => `вам следует ${x}`, pt: (x) => `você deve ${x}`, fr: (x) => `vous devriez ${x}`, de: (x) => `Sie sollten ${x}` }),
-  f({ id: "must", kind: "verb", pos: "verb", shift: 1, tr: (x) => `${x}meliyim`, en: (x) => `I must ${x}`, es: (x) => `debo ${x}`, it: (x) => `devo ${x}`, ru: (x) => `я должен ${x}`, pt: (x) => `devo ${x}`, fr: (x) => `je dois ${x}`, de: (x) => `ich muss ${x}` }),
-  f({ id: "try_to", kind: "verb", pos: "verb", shift: 2, tr: (x) => `${x}maya çalış`, en: (x) => `try to ${x}`, es: (x) => `intenta ${x}`, it: (x) => `prova a ${x}`, ru: (x) => `попробуйте ${x}`, pt: (x) => `tente ${x}`, fr: (x) => `essayez de ${x}`, de: (x) => `versuche zu ${x}` }),
+  f({ id: "will", kind: "verb", pos: "verb", shift: 1, tr: (x) => trFuture(x), en: (x) => `I will ${x}`, es: (x) => `voy a ${x}`, it: (x) => `ho intenzione di ${x}`, ru: (x) => `я буду ${x}`, pt: (x) => `vou ${x}`, fr: (x) => `je vais ${x}`, de: (x) => `ich werde ${x}` }),
+  f({ id: "can", kind: "verb", pos: "verb", shift: 0, tr: (x) => trAbility(x), en: (x) => `I can ${x}`, es: (x) => `puedo ${x}`, it: (x) => `posso ${x}`, ru: (x) => `я могу ${x}`, pt: (x) => `posso ${x}`, fr: (x) => `je peux ${x}`, de: (x) => `ich kann ${x}` }),
+  f({ id: "should_we", kind: "verb", pos: "verb", shift: 1, tr: (x) => `${trStem(x)}meliyiz`, en: (x) => `we should ${x}`, es: (x) => `deberíamos ${x}`, it: (x) => `dovremmo ${x}`, ru: (x) => `нам стоит ${x}`, pt: (x) => `devemos ${x}`, fr: (x) => `nous devrions ${x}`, de: (x) => `wir sollten ${x}` }),
+  f({ id: "lets", kind: "verb", pos: "verb", shift: 1, tr: (x) => `hadi ${trSoftStem(x)}elim`, en: (x) => `let's ${x}`, es: (x) => `vamos a ${x}`, it: (x) => `andiamo a ${x}`, ru: (x) => `давай ${x}`, pt: (x) => `vamos ${x}`, fr: (x) => `allons ${x}`, de: (x) => `lass uns ${x}` }),
+  f({ id: "dont", kind: "verb", pos: "verb", shift: 1, tr: (x) => `${trStem(x)}me`, en: (x) => `don't ${x}`, es: (x) => `no ${x}`, it: (x) => `non ${x}`, ru: (x) => `не ${x}`, pt: (x) => `não ${x}`, fr: (x) => `ne pas ${x}`, de: (x) => `nicht ${x}` }),
+  f({ id: "you_should", kind: "verb", pos: "verb", shift: 1, tr: (x) => `${trStem(x)}melisin`, en: (x) => `you should ${x}`, es: (x) => `debería ${x}`, it: (x) => `dovrebbe ${x}`, ru: (x) => `вам следует ${x}`, pt: (x) => `você deve ${x}`, fr: (x) => `vous devriez ${x}`, de: (x) => `Sie sollten ${x}` }),
+  f({ id: "must", kind: "verb", pos: "verb", shift: 1, tr: (x) => `${trStem(x)}meliyim`, en: (x) => `I must ${x}`, es: (x) => `debo ${x}`, it: (x) => `devo ${x}`, ru: (x) => `я должен ${x}`, pt: (x) => `devo ${x}`, fr: (x) => `je dois ${x}`, de: (x) => `ich muss ${x}` }),
+  f({ id: "try_to", kind: "verb", pos: "verb", shift: 2, tr: (x) => `${trStem(x)}meye çalış`, en: (x) => `try to ${x}`, es: (x) => `intenta ${x}`, it: (x) => `prova a ${x}`, ru: (x) => `попробуйте ${x}`, pt: (x) => `tente ${x}`, fr: (x) => `essayez de ${x}`, de: (x) => `versuche zu ${x}` }),
 ];
 
 const ADJ: Frame[] = [

@@ -1,9 +1,8 @@
 import { db, isDbConfigured } from "@/db";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { words } from "@/db/schema";
 import {
   LANG_INDEX,
-  TARGET_WORDS_PER_LANGUAGE,
   expandLexicon,
 } from "./lexicon";
 import type { LangCode } from "./types";
@@ -34,20 +33,7 @@ async function seedWorker(lang?: LangCode): Promise<void> {
       return;
     }
 
-    // Check overall database count
-    const [cnt] = await db
-      .select({ c: sql<number>`count(*)::int` })
-      .from(words)
-      .catch(() => [{ c: 0 }]);
-    const total = Number(cnt?.c ?? 0);
-    const expectedTotal = TARGET_WORDS_PER_LANGUAGE * LANG_INDEX.length; // 52500
-
-    if (total >= expectedTotal) {
-      for (const l of LANG_INDEX) seededLangs.add(l);
-      return;
-    }
-
-    // Seed missing languages one by one
+    // Upsert generated rows so deployments can repair previously seeded text.
     for (const l of LANG_INDEX) {
       await seedSingleLanguage(l);
     }
@@ -58,22 +44,24 @@ async function seedWorker(lang?: LangCode): Promise<void> {
 
 async function seedSingleLanguage(lang: LangCode): Promise<void> {
   try {
-    const [cnt] = await db
-      .select({ c: sql<number>`count(*)::int` })
-      .from(words)
-      .where(eq(words.language, lang))
-      .catch(() => [{ c: 0 }]);
-
-    if (cnt && Number(cnt.c) >= TARGET_WORDS_PER_LANGUAGE) {
-      seededLangs.add(lang);
-      return;
-    }
-
-    // Fast batch insert for this language (7500 words in 5 chunks of 1500)
+    // Fast batch upsert for this language (7500 words in 5 chunks of 1500).
     const rows = expandLexicon(lang);
     for (let i = 0; i < rows.length; i += 1500) {
       const chunk = rows.slice(i, i + 1500);
-      await db.insert(words).values(chunk).onConflictDoNothing();
+      await db
+        .insert(words)
+        .values(chunk)
+        .onConflictDoUpdate({
+          target: [words.conceptKey, words.language],
+          set: {
+            term: sql`excluded.term`,
+            translationTr: sql`excluded.translation_tr`,
+            translationEn: sql`excluded.translation_en`,
+            level: sql`excluded.level`,
+            category: sql`excluded.category`,
+            isCustom: sql`excluded.is_custom`,
+          },
+        });
     }
 
     seededLangs.add(lang);

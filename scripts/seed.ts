@@ -1,7 +1,7 @@
 import { db, isDbConfigured } from "../src/db";
 import { words } from "../src/db/schema";
 import { LANG_INDEX, TARGET_WORDS_PER_LANGUAGE, expandLexicon } from "../src/lib/lexicon";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 async function main() {
   console.log("Checking database connection...");
@@ -14,22 +14,26 @@ async function main() {
   console.log(`Current word count: ${cnt?.c ?? 0}`);
 
   for (const lang of LANG_INDEX) {
-    const [c] = await db
-      .select({ c: sql<number>`count(*)::int` })
-      .from(words)
-      .where(eq(words.language, lang));
-    const current = Number(c?.c ?? 0);
-    console.log(`Language [${lang.toUpperCase()}]: ${current} / ${TARGET_WORDS_PER_LANGUAGE}`);
-
-    if (current < TARGET_WORDS_PER_LANGUAGE) {
-      const rows = expandLexicon(lang);
-      console.log(`  Inserting ${rows.length} words for [${lang.toUpperCase()}]...`);
-      for (let i = 0; i < rows.length; i += 1500) {
-        const chunk = rows.slice(i, i + 1500);
-        await db.insert(words).values(chunk).onConflictDoNothing();
-      }
-      console.log(`  Done seeding [${lang.toUpperCase()}].`);
+    const rows = expandLexicon(lang);
+    console.log(`Language [${lang.toUpperCase()}]: upserting ${rows.length} generated words...`);
+    for (let i = 0; i < rows.length; i += 1500) {
+      const chunk = rows.slice(i, i + 1500);
+      await db
+        .insert(words)
+        .values(chunk)
+        .onConflictDoUpdate({
+          target: [words.conceptKey, words.language],
+          set: {
+            term: sql`excluded.term`,
+            translationTr: sql`excluded.translation_tr`,
+            translationEn: sql`excluded.translation_en`,
+            level: sql`excluded.level`,
+            category: sql`excluded.category`,
+            isCustom: sql`excluded.is_custom`,
+          },
+        });
     }
+    console.log(`  Done seeding [${lang.toUpperCase()}].`);
   }
 
   const [finalCnt] = await db.select({ c: sql<number>`count(*)::int` }).from(words);
