@@ -2,7 +2,7 @@ import { db, isDbConfigured } from "@/db";
 import { profiles, seriesProgress, words } from "@/db/schema";
 import { SERIES_SIZE, SERIES_WAVES } from "@/lib/constants";
 import { cefrRank, seriesIsUnlocked } from "@/lib/game";
-import { count, eq } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import { ensureSeeded } from "@/lib/ensure-seed";
 import { NextRequest } from "next/server";
 
@@ -29,12 +29,15 @@ export async function GET(req: NextRequest) {
     const seriesCount = Math.floor(total / SERIES_SIZE);
     const remainder = total % SERIES_SIZE;
 
-    // Ordered levels for each word, so every block gets an entry CEFR level.
+    // Keep series blocks grouped by CEFR level, then stable by database id.
     const levelRows = await db
       .select({ level: words.level })
       .from(words)
       .where(eq(words.language, language))
-      .orderBy(words.id);
+      .orderBy(
+        sql`CASE ${words.level} WHEN 'A1' THEN 1 WHEN 'A2' THEN 2 WHEN 'B1' THEN 3 WHEN 'B2' THEN 4 WHEN 'C1' THEN 5 ELSE 6 END`,
+        words.id,
+      );
     const levels = levelRows.map((r) => r.level);
 
     const [profile] = await db

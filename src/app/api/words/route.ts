@@ -1,7 +1,7 @@
 import { db, isDbConfigured } from "@/db";
 import { wordProgress, words } from "@/db/schema";
 import { ensureSeeded } from "@/lib/ensure-seed";
-import { and, eq, ilike, or } from "drizzle-orm";
+import { and, eq, ilike, or, sql } from "drizzle-orm";
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -32,14 +32,17 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Series blocks: deterministic 150-word windows ordered by id.
+    // Series blocks: deterministic 150-word windows grouped by CEFR level.
     let rows;
     if (offsetParam !== null && limitParam !== null) {
       const base = db
         .select()
         .from(words)
         .where(filters.length ? and(...filters) : undefined)
-        .orderBy(words.id)
+        .orderBy(
+          sql`CASE ${words.level} WHEN 'A1' THEN 1 WHEN 'A2' THEN 2 WHEN 'B1' THEN 3 WHEN 'B2' THEN 4 WHEN 'C1' THEN 5 ELSE 6 END`,
+          words.id,
+        )
         .limit(Number(limitParam) > 0 ? Number(limitParam) : 150)
         .offset(Number(offsetParam) || 0);
       rows = await base;

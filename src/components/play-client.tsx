@@ -158,6 +158,7 @@ export function PlayClient() {
   const poolRef = useRef<WordCard[]>([]);
   const waveRef = useRef(1);
   const arenaRef = useRef<HTMLDivElement | null>(null);
+  const lastTapLaneRef = useRef<number | null>(null);
   const langRef = useRef<LangCode>(lang);
   const voiceRateRef = useRef(voiceRate);
   const autoSpeakRef = useRef(true);
@@ -595,13 +596,27 @@ export function PlayClient() {
   };
 
   const fire = () => {
+    lastTapLaneRef.current = null;
     void resumeAudio();
     primeSpeech();
     resolveShot(laneRef.current);
   };
 
+  const tapLane = (nextLane: number) => {
+    if (phaseRef.current !== "play" || resolvingRef.current) return;
+    if (lastTapLaneRef.current === nextLane) {
+      lastTapLaneRef.current = null;
+      fire();
+      return;
+    }
+    lastTapLaneRef.current = nextLane;
+    setLane(nextLane);
+    laneRef.current = nextLane;
+  };
+
   const shiftLane = (dir: -1 | 1) => {
     if (phaseRef.current !== "play" || resolvingRef.current) return;
+    lastTapLaneRef.current = null;
     setLane((l) => Math.max(0, Math.min(2, l + dir)));
   };
 
@@ -866,10 +881,10 @@ export function PlayClient() {
           ref={arenaRef}
           data-arena=""
           onPointerDown={(e) => {
-            // Tapping any empty spot in the arena fires straight away.
             if ((e.target as HTMLElement).closest("[data-invader]")) return;
-            void resumeAudio();
-            resolveShot(laneRef.current);
+            const bounds = e.currentTarget.getBoundingClientRect();
+            const nextLane = Math.max(0, Math.min(2, Math.floor(((e.clientX - bounds.left) / bounds.width) * 3)));
+            tapLane(nextLane);
           }}
           className="relative min-h-[285px] flex-1 cursor-crosshair touch-manipulation overflow-hidden rounded-[28px]"
         >
@@ -905,11 +920,7 @@ export function PlayClient() {
                     <button
                       type="button"
                       key={`${roundKey}-${laneIndex}-${inv.word.id}`}
-                      onClick={() => {
-                        setLane(laneIndex);
-                        laneRef.current = laneIndex;
-                        resolveShot(laneIndex);
-                      }}
+                      onClick={() => tapLane(laneIndex)}
                       data-invader={laneIndex}
                       {...(inv.isCorrect ? { "data-correct-lane": laneIndex } : {})}
                       className={`falling pointer-events-auto absolute inset-x-0 px-1.5 ${selectedLane ? "z-20" : "z-10 opacity-85"}`}

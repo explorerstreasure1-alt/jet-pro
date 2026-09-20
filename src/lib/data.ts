@@ -290,6 +290,7 @@ function filterLocalWords(q: WordQuery): WordCard[] {
   }
   if (q.offset !== undefined || q.limit !== undefined) {
     const start = q.offset ?? 0;
+    rows = rows.slice().sort((a, b) => cefrRank(a.level) - cefrRank(b.level) || a.id - b.id);
     const end = q.limit ? start + q.limit : undefined;
     rows = rows.slice(start, end);
   }
@@ -621,7 +622,7 @@ export async function fetchSeries(profileId: number, language: string) {
     dbAvailable = false;
     const all = localLexicon()
       .filter((w) => w.language === language)
-      .sort((a, b) => a.id - b.id);
+      .sort((a, b) => cefrRank(a.level) - cefrRank(b.level) || a.id - b.id);
     const total = all.length;
     const seriesCount = Math.floor(total / SERIES_SIZE);
     const sp = read<Record<string, { completed: boolean; bestScore: number; stars: number }>>(SERIES_KEY, {});
