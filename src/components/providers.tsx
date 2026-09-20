@@ -181,7 +181,7 @@ function BootScreen({ pct }: { pct: number }) {
     <div className="relative grid min-h-dvh place-items-center overflow-hidden bg-[#050814] px-6">
       <div
         className="absolute inset-0 bg-cover bg-center opacity-40"
-        style={{ backgroundImage: "url(/images/nebula.jpg)" }}
+        style={{ backgroundImage: "radial-gradient(ellipse at 50% 0%, rgba(20, 80, 90, 0.28), transparent 58%)" }}
       />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent,rgba(0,0,0,0.75))]" />
       <div className="relative z-10 w-full max-w-md text-center">

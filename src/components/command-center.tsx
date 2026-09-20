@@ -66,7 +66,7 @@ export function CommandCenter() {
     <div className="relative min-h-dvh overflow-hidden">
       <div
         className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: "url(/images/nebula.jpg)" }}
+        style={{ backgroundImage: "radial-gradient(ellipse at 50% 0%, rgba(20, 80, 90, 0.28), transparent 58%)" }}
       />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,8,18,0.55),rgba(4,8,18,0.88))]" />
       <Starfield />

@@ -18,7 +18,7 @@ export function AppFrame({
     <div className="relative min-h-dvh overflow-hidden">
       <div
         className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-50"
-        style={{ backgroundImage: "url(/images/nebula.jpg)" }}
+        style={{ backgroundImage: "radial-gradient(ellipse at 50% 0%, rgba(20, 80, 90, 0.28), transparent 58%)" }}
       />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(20,80,90,0.18),transparent_50%),linear-gradient(180deg,rgba(5,8,20,0.4),rgba(5,8,20,0.88))]" />
       <div className="relative z-10 mx-auto flex min-h-dvh max-w-3xl flex-col px-4 pb-10 pt-4 sm:px-6">

@@ -278,6 +278,16 @@ html[data-motion="on"] .falling {
   mask-image: linear-gradient(to bottom, transparent, black 22%, black 78%, transparent);
 }
 
+.game-arena {
+  min-height: clamp(400px, calc(100dvh - 320px), 680px);
+}
+
+@media (max-width: 480px) {
+  .game-arena {
+    min-height: clamp(420px, calc(100dvh - 300px), 720px);
+  }
+}
+
 .radar-sweep {
   background: conic-gradient(
     from 200deg,

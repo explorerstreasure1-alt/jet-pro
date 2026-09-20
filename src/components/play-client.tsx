@@ -794,7 +794,7 @@ export function PlayClient() {
     <div className={`relative min-h-dvh overflow-hidden bg-[#050814] ${shake ? "shake" : ""}`}>
       <div
         className="absolute inset-0 bg-cover bg-center opacity-55"
-        style={{ backgroundImage: "url(/images/nebula.jpg)" }}
+        style={{ backgroundImage: "radial-gradient(ellipse at 50% 0%, rgba(20, 80, 90, 0.28), transparent 58%)" }}
       />
       <Starfield n={36} />
       <div className="relative z-10 mx-auto flex min-h-dvh max-w-[460px] flex-col px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-[max(8px,env(safe-area-inset-top))]">
@@ -886,7 +886,7 @@ export function PlayClient() {
             const nextLane = Math.max(0, Math.min(2, Math.floor(((e.clientX - bounds.left) / bounds.width) * 3)));
             tapLane(nextLane);
           }}
-          className="relative min-h-[380px] flex-1 cursor-crosshair touch-manipulation overflow-hidden rounded-[28px]"
+          className="game-arena relative flex-1 cursor-crosshair touch-manipulation overflow-hidden rounded-[28px]"
         >
           <div className="arena-grid pointer-events-none absolute inset-0 rounded-[28px]" />
           <div className="radar-sweep pointer-events-none absolute left-1/2 top-[44%] h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-50" />
@@ -928,7 +928,7 @@ export function PlayClient() {
                         top: reduce ? "16%" : "0%",
                         animation: reduce ? "none" : `fallY ${durationFor(inv)}s linear forwards`,
                         animationPlayState: frozen ? "paused" : "running",
-                        ["--fall-to" as string]: "62vh",
+                        ["--fall-to" as string]: "min(62vh, calc(100% - 112px))",
                       }}
                       onAnimationEnd={() => {
                         if (roundRef.current === roundKey) onLeak(laneIndex);

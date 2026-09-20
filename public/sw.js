@@ -1,11 +1,7 @@
-const CACHE = "word-invaders-v5";
+const CACHE = "word-invaders-v6";
 const CORE = [
   "/manifest.webmanifest",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-  "/icons/maskable-512.png",
-  "/apple-touch-icon.png",
-  "/images/nebula.jpg",
+  "/icon.svg",
 ];
 
 async function purgeOldCaches() {
