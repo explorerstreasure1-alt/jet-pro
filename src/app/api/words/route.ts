@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { wordProgress, words } from "@/db/schema";
 import { ensureSeeded } from "@/lib/ensure-seed";
+import { buildFallbackSeries, databaseConfigured } from "@/lib/fallback";
 import { and, eq, ilike, or } from "drizzle-orm";
 import { NextRequest } from "next/server";
 
@@ -10,6 +11,25 @@ export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   try {
+    if (!databaseConfigured()) {
+      return Response.json(buildFallbackSeries(req.nextUrl.searchParams.get("language") ?? "en").list.map((series) => ({
+        id: series.number,
+        conceptKey: `fallback-${series.number}`,
+        language: req.nextUrl.searchParams.get("language") ?? "en",
+        term: `demo-${series.number}`,
+        translationTr: `demo-${series.number}`,
+        translationEn: `demo-${series.number}`,
+        phonetic: null,
+        example: null,
+        exampleTr: null,
+        level: "A1",
+        category: "daily",
+        isCustom: false,
+        heat: 0,
+        correctCount: 0,
+        wrongCount: 0,
+      })));
+    }
     await ensureSeeded();
     const sp = req.nextUrl.searchParams;
     const language = sp.get("language");

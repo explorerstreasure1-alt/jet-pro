@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { dailyLogs, inventory, profiles } from "@/db/schema";
 import { todayIso } from "@/lib/constants";
+import { buildFallbackProfile, databaseConfigured } from "@/lib/fallback";
 import { and, eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
 
@@ -9,6 +10,10 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as { profileId?: number };
+    if (!databaseConfigured()) {
+      const fallback = buildFallbackProfile(`demo-${body.profileId ?? "daily"}`);
+      return Response.json({ ok: true, already: false, profile: fallback, credits: 90, freeze: 1, fallback: true });
+    }
     if (!body.profileId) return Response.json({ error: "profileId" }, { status: 400 });
     const today = todayIso();
     const rows = await db

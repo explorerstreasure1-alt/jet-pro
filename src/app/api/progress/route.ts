@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { achievements, profiles, wordProgress } from "@/db/schema";
+import { databaseConfigured } from "@/lib/fallback";
 import { eq, and } from "drizzle-orm";
 import { NextRequest } from "next/server";
 
@@ -12,6 +13,9 @@ export async function POST(req: NextRequest) {
       results?: { wordId: number; correct: boolean }[];
       reset?: boolean;
     };
+    if (!databaseConfigured()) {
+      return Response.json({ ok: true, mastered: 0, fallback: true });
+    }
     if (!body.profileId) return Response.json({ error: "profileId required" }, { status: 400 });
 
     if (body.reset) {

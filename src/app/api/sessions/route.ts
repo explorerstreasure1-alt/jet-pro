@@ -7,6 +7,7 @@ import {
   seriesProgress,
 } from "@/db/schema";
 import { todayIso } from "@/lib/constants";
+import { databaseConfigured } from "@/lib/fallback";
 import { xpToRank } from "@/lib/game";
 import { and, eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
@@ -14,6 +15,9 @@ import { NextRequest } from "next/server";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  if (!databaseConfigured()) {
+    return Response.json([]);
+  }
   const profileId = Number(req.nextUrl.searchParams.get("profileId"));
   if (!Number.isFinite(profileId)) return Response.json({ error: "profileId" }, { status: 400 });
   const rows = await db.select().from(gameSessions).where(eq(gameSessions.profileId, profileId));
@@ -39,6 +43,9 @@ export async function POST(req: NextRequest) {
       durationMs?: number;
       won?: boolean;
     };
+    if (!databaseConfigured()) {
+      return Response.json({ ok: true, fallback: true, unlocked: [] });
+    }
     if (!body.profileId || !body.language || !body.level) {
       return Response.json({ error: "missing" }, { status: 400 });
     }

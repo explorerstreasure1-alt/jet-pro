@@ -1,11 +1,13 @@
 import { db } from "@/db";
 import { words } from "@/db/schema";
+import { databaseConfigured } from "@/lib/fallback";
 import { and, count, eq, ilike } from "drizzle-orm";
 import { TARGET_WORDS_PER_LANGUAGE, expandLexicon } from "./lexicon";
 
 let seeding: Promise<void> | null = null;
 
 export function ensureSeeded() {
+  if (!databaseConfigured()) return Promise.resolve();
   if (!seeding) {
     seeding = seedOnce().catch((e) => {
       // Allow a retry on the next request instead of caching the failure —

@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { profiles, seriesProgress, words } from "@/db/schema";
 import { SERIES_SIZE, SERIES_WAVES } from "@/lib/constants";
+import { buildFallbackSeries, databaseConfigured } from "@/lib/fallback";
 import { count, eq } from "drizzle-orm";
 import { ensureSeeded } from "@/lib/ensure-seed";
 import { NextRequest } from "next/server";
@@ -14,9 +15,13 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
+    const language = req.nextUrl.searchParams.get("language") ?? "en";
+    if (!databaseConfigured()) {
+      return Response.json(buildFallbackSeries(language));
+    }
+
     await ensureSeeded();
     const profileId = Number(req.nextUrl.searchParams.get("profileId"));
-    const language = req.nextUrl.searchParams.get("language") ?? "en";
     if (!Number.isFinite(profileId)) return Response.json({ error: "profileId" }, { status: 400 });
 
     const [c] = await db.select({ c: count() }).from(words).where(eq(words.language, language));
