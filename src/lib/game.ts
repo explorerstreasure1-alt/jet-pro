@@ -42,14 +42,9 @@ export function pickDistractors(pool: WordCard[], target: WordCard, n: number) {
   const bag = shuffle(same.length >= n ? same : rest);
   const out: WordCard[] = [];
   const seen = new Set<string>([target.conceptKey]);
-  const seenTerms = new Set<string>([target.term.toLowerCase()]);
   for (const w of bag) {
     if (seen.has(w.conceptKey)) continue;
-    // Some languages share one word across two concepts (e.g. RU "решение"
-    // for both decision & solution) — never show two identical cards.
-    if (seenTerms.has(w.term.toLowerCase())) continue;
     seen.add(w.conceptKey);
-    seenTerms.add(w.term.toLowerCase());
     out.push(w);
     if (out.length >= n) break;
   }
@@ -87,4 +82,33 @@ export function hintMask(term: string) {
 
 export function xpToRank(xp: number) {
   return Math.min(99, 1 + Math.floor(xp / 400));
+}
+
+export const CEFR_ORDER = ["A1", "A2", "B1", "B2", "C1"] as const;
+
+/** A1=1 … C1=5 (unknown levels default to A1). */
+export function cefrRank(level?: string | null): number {
+  const i = CEFR_ORDER.indexOf(((level ?? "A1") as (typeof CEFR_ORDER)[number]));
+  return i < 0 ? 1 : i + 1;
+}
+
+/**
+ * Series unlock rule:
+ * - Everything at or below B1 is open from the start (learner's chosen game
+ *   level is independent; they can start any A1/A2/B1 block immediately).
+ * - B2 and C1 blocks unlock one by one as the previous block is completed,
+ *   or when the learner has reached that level.
+ */
+export const SERIES_FREE_RANK = 3; // A1=1, A2=2, B1=3
+
+export function seriesIsUnlocked(opts: {
+  index: number;
+  entryRank: number;
+  learnerRank: number;
+  previousCompleted: boolean;
+}): boolean {
+  if (opts.index === 0) return true;
+  if (opts.entryRank <= SERIES_FREE_RANK) return true;
+  if (opts.entryRank <= opts.learnerRank) return true;
+  return opts.previousCompleted;
 }

@@ -1,7 +1,6 @@
 import { db } from "@/db";
 import { achievements, inventory, profiles } from "@/db/schema";
 import { SHOP_ITEMS } from "@/lib/constants";
-import { databaseConfigured } from "@/lib/fallback";
 import { and, eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
 
@@ -10,9 +9,6 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as { profileId?: number; itemCode?: string; equip?: boolean };
-    if (!databaseConfigured()) {
-      return Response.json({ ok: true, fallback: true });
-    }
     if (!body.profileId || !body.itemCode) {
       return Response.json({ error: "missing" }, { status: 400 });
     }
@@ -82,9 +78,6 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = (await req.json()) as { profileId?: number; itemCode?: string; delta?: number };
-    if (!databaseConfigured()) {
-      return Response.json({ ok: true, fallback: true });
-    }
     if (!body.profileId || !body.itemCode) {
       return Response.json({ error: "missing" }, { status: 400 });
     }

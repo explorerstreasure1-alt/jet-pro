@@ -1,7 +1,8 @@
 "use client";
 
 import { setMusic } from "@/lib/audio";
-import { LANGS, LEVELS } from "@/lib/constants";
+import { LANGS } from "@/lib/constants";
+import { saveProgress } from "@/lib/data";
 import type { ProfileSettings } from "@/db/schema";
 import { useEffect, useState, type ReactNode } from "react";
 import { AppFrame } from "./app-frame";
@@ -25,11 +26,7 @@ export function SettingsClient() {
   };
 
   const resetHeat = async () => {
-    await fetch("/api/progress", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileId: profile.id, reset: true }),
-    });
+    await saveProgress(profile.id, [], true);
     await reload();
   };
 
@@ -73,19 +70,6 @@ export function SettingsClient() {
                 onClick={() => void patch({ learningLang: l.code })}
               >
                 {l.flag} {l.code.toUpperCase()}
-              </Chip>
-            ))}
-          </div>
-        </Field>
-        <Field label={tt("chooseLevel")}>
-          <div className="flex flex-wrap gap-2">
-            {LEVELS.map((l) => (
-              <Chip
-                key={l.code}
-                on={profile.cefrLevel === l.code}
-                onClick={() => void patch({ cefrLevel: l.code })}
-              >
-                {l.code}
               </Chip>
             ))}
           </div>
@@ -140,9 +124,7 @@ export function SettingsClient() {
         <button type="button" className="holo w-full rounded-2xl py-3" onClick={() => void resetHeat()}>
           {tt("resetHeat")}
         </button>
-        <div className="flex justify-center">
-          <InstallButton compact />
-        </div>
+        <InstallButton block />
         <p className="text-center text-[10px] text-white/30">{cid}</p>
       </div>
     </AppFrame>

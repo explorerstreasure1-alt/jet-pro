@@ -1,15 +1,12 @@
-import { db } from "@/db";
+import { db, isDbConfigured } from "@/db";
 import { achievements, dailyLogs, inventory, profiles } from "@/db/schema";
 import { randomCallsign, todayIso } from "@/lib/constants";
 import { ensureSeeded } from "@/lib/ensure-seed";
-import { buildFallbackProfile, databaseConfigured } from "@/lib/fallback";
 import { xpToRank } from "@/lib/game";
 import { and, eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
-// First request may seed 52,500 lexicon rows — allow up to 60s on Vercel.
-export const maxDuration = 60;
 
 function applyStreak(last: string | null, current: number, today: string) {
   if (!last) return { streak: 1, lastPlayedDate: today };
@@ -23,12 +20,11 @@ function applyStreak(last: string | null, current: number, today: string) {
 
 export async function GET(req: NextRequest) {
   try {
-    const clientId = req.nextUrl.searchParams.get("clientId") ?? "demo-user";
-    if (!databaseConfigured()) {
-      return Response.json(buildFallbackProfile(clientId));
+    if (!isDbConfigured()) {
+      return Response.json({ error: "no_db", mode: "local" }, { status: 503 });
     }
-
     await ensureSeeded();
+    const clientId = req.nextUrl.searchParams.get("clientId");
     if (!clientId) return Response.json({ error: "clientId required" }, { status: 400 });
 
     let [p] = await db.select().from(profiles).where(eq(profiles.clientId, clientId));
@@ -124,6 +120,9 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    if (!isDbConfigured()) {
+      return Response.json({ error: "no_db", mode: "local" }, { status: 503 });
+    }
     const body = (await req.json()) as {
       clientId?: string;
       callsign?: string;
@@ -134,17 +133,6 @@ export async function PATCH(req: NextRequest) {
       equippedShip?: string;
       settings?: Record<string, unknown>;
     };
-    if (!databaseConfigured()) {
-      const fallback = buildFallbackProfile(body.clientId ?? "demo-user");
-      if (body.callsign) fallback.callsign = body.callsign;
-      if (body.nativeLang) fallback.nativeLang = body.nativeLang;
-      if (body.learningLang) fallback.learningLang = body.learningLang;
-      if (body.cefrLevel) fallback.cefrLevel = body.cefrLevel;
-      if (body.category) fallback.category = body.category;
-      if (body.equippedShip) fallback.equippedShip = body.equippedShip;
-      if (body.settings) fallback.settings = { ...fallback.settings, ...body.settings };
-      return Response.json(fallback);
-    }
     if (!body.clientId) return Response.json({ error: "clientId required" }, { status: 400 });
     const [p] = await db.select().from(profiles).where(eq(profiles.clientId, body.clientId));
     if (!p) return Response.json({ error: "not found" }, { status: 404 });

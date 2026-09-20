@@ -37,6 +37,22 @@ export const WAVES_ARCADE = 4;
 export const WORDS_PER_WAVE = 10;
 export const SERIES_SIZE = 150;
 export const SERIES_WAVES = 15;
+export const WORDS_PER_LANG = 7500;
+export const SERIES_PER_LANG = 50; // 7500 / 150 = 50, remainder = 0
+
+export function parseSeriesId(id?: string | null): { lang: string; number: number } | null {
+  if (!id) return null;
+  const m = /^s-([a-z]{2})-(\d+)$/.exec(id);
+  if (!m) return null;
+  return { lang: m[1]!, number: Number(m[2]) };
+}
+
+export function nextSeriesId(id?: string | null): string | null {
+  const parsed = parseSeriesId(id);
+  if (!parsed) return null;
+  const nextNum = parsed.number >= SERIES_PER_LANG ? 1 : parsed.number + 1;
+  return `s-${parsed.lang}-${nextNum}`;
+}
 export const MAX_HP = 100;
 export const MISS_DAMAGE = 14;
 export const WRONG_SHOT_DAMAGE = 12;

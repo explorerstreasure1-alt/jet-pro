@@ -81,13 +81,6 @@ const TR = {
   voiceRate: "Konuşma hızı",
   resetHeat: "Isı haritasını sıfırla",
   install: "Uygulamayı kur",
-  installApp: "TELEFONA YÜKLE",
-  installed: "YÜKLENDİ",
-  iosInstallTitle: "iPhone / iPad'e kurulum",
-  iosStep1: "Safari'de Paylaş düğmesine bas",
-  iosStep2: "\"Ana Ekrana Ekle\" seçeneğine dokun",
-  iosStep3: "Sağ üstten \"Ekle\" ile onayla",
-  installHint: "Tam ekran, çevrimdışı ve simge ile",
   waveClear: "DALGA TEMİZ",
   nextWave: "SONRAKİ DALGA",
   listening: "DİNLİYOR…",
@@ -147,6 +140,9 @@ const TR = {
   noSpeech: "Eşleşme yok",
   loading: "Yükleniyor",
   words: "kelime",
+  nextSeries: "SONRAKİ SERİ",
+  wrapsToStart: "150 kelime tamamlandı • başa sarar",
+  seriesPack: "150'lik Seri",
 };
 
 const EN: typeof TR = {
@@ -230,13 +226,6 @@ const EN: typeof TR = {
   voiceRate: "Voice rate",
   resetHeat: "Reset heat map",
   install: "Install app",
-  installApp: "INSTALL ON PHONE",
-  installed: "INSTALLED",
-  iosInstallTitle: "Install on iPhone / iPad",
-  iosStep1: "Tap the Share button in Safari",
-  iosStep2: "Tap \"Add to Home Screen\"",
-  iosStep3: "Confirm with \"Add\" at top right",
-  installHint: "Fullscreen, offline, with an icon",
   waveClear: "WAVE CLEAR",
   nextWave: "NEXT WAVE",
   listening: "LISTENING…",
@@ -296,6 +285,9 @@ const EN: typeof TR = {
   noSpeech: "No match",
   loading: "Loading",
   words: "words",
+  nextSeries: "NEXT SERIES",
+  wrapsToStart: "150 words completed • loops to start",
+  seriesPack: "150-Word Series",
 };
 
 export type I18nKey = keyof typeof TR;

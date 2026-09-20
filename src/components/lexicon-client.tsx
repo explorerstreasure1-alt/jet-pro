@@ -1,6 +1,7 @@
 "use client";
 
 import { CATEGORIES, LANGS, LEVELS, heatBand } from "@/lib/constants";
+import { addCustomWord, fetchWords } from "@/lib/data";
 import { speakTerm } from "@/lib/speech";
 import type { LangCode, WordCard } from "@/lib/types";
 import { useEffect, useState } from "react";
@@ -14,21 +15,19 @@ export function LexiconClient() {
   const [cat, setCat] = useState<string>("all");
   const [q, setQ] = useState("");
   const [words, setWords] = useState<WordCard[]>([]);
+  const [visibleCount, setVisibleCount] = useState(60);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ term: "", translationTr: "", translationEn: "", level: "A1", category: "daily" });
 
   const load = () => {
-    if (!profile) return;
-    const qs = new URLSearchParams({
+    setVisibleCount(60);
+    fetchWords({
       language: lang,
       level,
       category: cat,
       q,
-      profileId: String(profile.id),
-    });
-    fetch(`/api/words?${qs.toString()}`)
-      .then((r) => r.json())
-      .then((d: WordCard[]) => setWords(Array.isArray(d) ? d : []));
+      profileId: profile ? String(profile.id) : undefined,
+    }).then(setWords);
   };
 
   useEffect(() => {
@@ -37,11 +36,7 @@ export function LexiconClient() {
   }, [lang, level, cat, profile?.id]);
 
   const add = async () => {
-    await fetch("/api/words", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ language: lang, ...form }),
-    });
+    await addCustomWord({ language: lang, ...form });
     setOpen(false);
     setForm({ term: "", translationTr: "", translationEn: "", level: "A1", category: "daily" });
     load();
@@ -102,13 +97,21 @@ export function LexiconClient() {
           {tt("addWord")}
         </button>
       </div>
+      <div className="mb-2 flex items-center justify-between text-[11px] text-white/45">
+        <span>
+          {ui === "en" ? "Total filtered:" : "Filtrelenen:"} <strong className="text-cyan-200 font-digital">{words.length}</strong> {tt("words")}
+        </span>
+        <span>
+          {ui === "en" ? "Showing:" : "Gösterilen:"} <strong className="text-cyan-200 font-digital">{Math.min(visibleCount, words.length)}</strong>
+        </span>
+      </div>
       <ul className="space-y-2">
-        {words.slice(0, 120).map((w) => {
+        {words.slice(0, visibleCount).map((w) => {
           const band = heatBand(w.heat);
           return (
             <li key={w.id} className="holo flex items-center gap-3 rounded-2xl px-3 py-3">
               <div
-                className={`h-2 w-2 rounded-full ${
+                className={`h-2 w-2 rounded-full shrink-0 ${
                   band === "fire" ? "bg-fuchsia-400" : band === "warm" ? "bg-amber-300" : "bg-cyan-300"
                 }`}
               />
@@ -121,7 +124,7 @@ export function LexiconClient() {
               </div>
               <button
                 type="button"
-                className="text-xs tracking-widest text-cyan-200"
+                className="text-xs tracking-widest text-cyan-200 shrink-0"
                 onClick={() => speakTerm(w.term, lang, profile?.settings.voiceRate ?? 0.92)}
               >
                 {tt("listen")}
@@ -130,6 +133,15 @@ export function LexiconClient() {
           );
         })}
       </ul>
+      {visibleCount < words.length && (
+        <button
+          type="button"
+          onClick={() => setVisibleCount((n) => n + 60)}
+          className="holo mt-3 w-full rounded-2xl py-3 text-xs tracking-[0.2em] text-cyan-100 hover:border-cyan-300/60"
+        >
+          {ui === "en" ? `+ SHOW MORE (${Math.min(visibleCount, words.length)} / ${words.length})` : `+ DAHA FAZLA GÖSTER (${Math.min(visibleCount, words.length)} / ${words.length})`}
+        </button>
+      )}
       {!words.length && <p className="mt-8 text-center text-white/40">{tt("emptyLexicon")}</p>}
 
       {open && (

@@ -1,35 +1,11 @@
 "use client";
 
 import { LANGS, padScore } from "@/lib/constants";
+import { fetchSeries, type SeriesEntry, type SeriesData } from "@/lib/data";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppFrame } from "./app-frame";
 import { useApp } from "./providers";
-
-type SeriesEntry = {
-  id: string;
-  number: number;
-  from: number;
-  to: number;
-  size: number;
-  waves: number;
-  completed: boolean;
-  bestScore: number;
-  stars: number;
-  unlocked: boolean;
-};
-
-type SeriesData = {
-  language: string;
-  total: number;
-  size: number;
-  seriesCount: number;
-  remainder: number;
-  loop: number;
-  cefrLevel: string;
-  levelQuota: number;
-  list: SeriesEntry[];
-};
 
 export function SeriesClient() {
   const { profile, tt, ui } = useApp();
@@ -40,11 +16,9 @@ export function SeriesClient() {
   useEffect(() => {
     if (!profile) return;
     let live = true;
-    fetch(`/api/series?profileId=${profile.id}&language=${lang}`)
-      .then((r) => r.json())
-      .then((d: SeriesData) => {
-        if (live) setData(d);
-      });
+    fetchSeries(profile.id, lang).then((d) => {
+      if (live) setData(d);
+    });
     return () => {
       live = false;
     };
@@ -87,18 +61,16 @@ export function SeriesClient() {
           <p className="mt-1 text-xs text-white/50">
             {data.remainder} {tt("artan")} · {tt("loop")} {data.loop}
           </p>
+          <p className="mt-2 inline-block rounded-full border border-cyan-300/40 bg-cyan-300/10 px-3 py-1 text-[11px] tracking-[0.15em] text-cyan-100">
+            {ui === "en"
+              ? "A1–B1 series are unlocked"
+              : "A1–B1 serileri açık"}
+          </p>
           <p className="mt-2 text-[11px] leading-relaxed text-white/40">
             {ui === "en"
-              ? "Every series plays 150 words (15 waves). After the last series the loop restarts from #1."
-              : "Her seri 150 kelime oynatır (15 dalga). Son seride döngü 1 numaraya baştan başlar."}
+              ? "Each series plays 150 words (15 waves). You may start any A1/A2/B1 block; B2 and C1 open as you complete the previous block, then the loop restarts from #1."
+              : "Her seri 150 kelime oynatır (15 dalga). İstediğin A1/A2/B1 bloğundan başlayabilirsin; B2 ve C1 önceki blok tamamlanınca açılır, son seride döngü 1 numaraya döner."}
           </p>
-          {data.levelQuota > 0 && (
-            <p className="mt-2 rounded-lg border border-emerald-300/25 bg-emerald-300/10 px-2 py-1 text-[11px] text-emerald-200">
-              {ui === "en"
-                ? `${data.cefrLevel} level: first ${data.levelQuota} series unlocked`
-                : `${data.cefrLevel} seviyesi: ilk ${data.levelQuota} seri açık`}
-            </p>
-          )}
         </div>
       )}
 
@@ -114,6 +86,11 @@ export function SeriesClient() {
             <div className="min-w-0 flex-1">
               <p className="text-sm text-cyan-50">
                 {tt("seri")} #{s.number}
+                {s.level && (
+                  <span className="ml-2 rounded border border-fuchsia-300/30 bg-fuchsia-400/10 px-1.5 py-0.5 text-[9px] tracking-[0.15em] text-fuchsia-200">
+                    {s.level}
+                  </span>
+                )}
                 <span className="ml-2 text-[11px] text-white/40">
                   {s.from}–{s.to} {tt("wordsRange")}
                 </span>

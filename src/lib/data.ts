@@ -9,10 +9,10 @@ import {
   randomCallsign,
   todayIso,
 } from "./constants";
-import { xpToRank } from "./game";
+import { cefrRank, seriesIsUnlocked, xpToRank } from "./game";
 import { expandLexicon, type SeedWord } from "./lexicon";
 import type { ClientInventory, ClientProfile, DailyState } from "./profile-types";
-import type { WordCard } from "./types";
+import type { LangCode, WordCard } from "./types";
 
 let dbAvailable: boolean | null = null;
 
@@ -124,7 +124,7 @@ export function localProfile(): ClientProfile {
     callsign: randomCallsign(),
     nativeLang: "tr",
     learningLang: "en",
-    cefrLevel: "A1",
+    cefrLevel: "B1",
     category: "all",
     credits: 160,
     highScore: 0,
@@ -209,27 +209,41 @@ export async function patchProfile(body: Record<string, unknown>): Promise<Clien
 
 /* ---------------- lexicon ---------------- */
 
-let lexiconCache: WordCard[] | null = null;
+const langLexiconCache = new Map<string, WordCard[]>();
 
-export function localLexicon(): WordCard[] {
-  if (lexiconCache) return lexiconCache;
-  const raw: (SeedWord & { id: number })[] = expandLexicon().map((w, i) => ({ ...w, id: i + 1 }));
-  const customs = read<(SeedWord & { id: number })[]>(CUSTOM_KEY, []);
-  const progress = read<Record<number, LocalProgress>>(PROGRESS_KEY, {});
-  const all = [...raw, ...customs];
-  lexiconCache = all.map((w) => {
-    const p = progress[w.id];
-    return {
+export function localLexicon(targetLang?: string): WordCard[] {
+  if (targetLang) {
+    const existing = langLexiconCache.get(targetLang);
+    if (existing) return existing;
+    const raw: (SeedWord & { id: number })[] = expandLexicon(targetLang as LangCode).map((w, i) => ({
       ...w,
-      phonetic: null,
-      example: null,
-      exampleTr: null,
-      heat: p?.heat ?? 0,
-      correctCount: p?.correctCount ?? 0,
-      wrongCount: p?.wrongCount ?? 0,
-    };
-  });
-  return lexiconCache;
+      id: i + 1,
+    }));
+    const customs = read<(SeedWord & { id: number })[]>(CUSTOM_KEY, []).filter(
+      (c) => c.language === targetLang,
+    );
+    const progress = read<Record<number, LocalProgress>>(PROGRESS_KEY, {});
+    const combined = [...raw, ...customs].map((w) => {
+      const p = progress[w.id];
+      return {
+        ...w,
+        phonetic: null,
+        example: null,
+        exampleTr: null,
+        heat: p?.heat ?? 0,
+        correctCount: p?.correctCount ?? 0,
+        wrongCount: p?.wrongCount ?? 0,
+      };
+    });
+    langLexiconCache.set(targetLang, combined);
+    return combined;
+  }
+
+  let all: WordCard[] = [];
+  for (const l of ["en", "es", "it", "ru", "pt", "fr", "de"]) {
+    all = all.concat(localLexicon(l));
+  }
+  return all;
 }
 
 type WordQuery = {
@@ -261,7 +275,7 @@ export async function fetchWords(query: WordQuery): Promise<WordCard[]> {
 }
 
 function filterLocalWords(q: WordQuery): WordCard[] {
-  let rows = localLexicon();
+  let rows = localLexicon(q.language);
   if (q.language) rows = rows.filter((w) => w.language === q.language);
   if (q.level && q.level !== "all") rows = rows.filter((w) => w.level === q.level);
   if (q.category && q.category !== "all") rows = rows.filter((w) => w.category === q.category);
@@ -312,7 +326,7 @@ export async function addCustomWord(input: {
       isCustom: true,
     });
     write(CUSTOM_KEY, customs);
-    lexiconCache = null;
+    langLexiconCache.clear();
   }
 }
 
@@ -568,6 +582,7 @@ export async function claimDaily(profileId: number) {
 export type SeriesEntry = {
   id: string;
   number: number;
+  level?: string;
   from: number;
   to: number;
   size: number;
@@ -585,6 +600,7 @@ export type SeriesData = {
   seriesCount: number;
   remainder: number;
   loop: number;
+  learnerLevel?: string;
   list: SeriesEntry[];
 };
 
@@ -603,18 +619,27 @@ export async function fetchSeries(profileId: number, language: string) {
     };
   } catch {
     dbAvailable = false;
-    const total = localLexicon().filter((w) => w.language === language).length;
+    const all = localLexicon()
+      .filter((w) => w.language === language)
+      .sort((a, b) => a.id - b.id);
+    const total = all.length;
     const seriesCount = Math.floor(total / SERIES_SIZE);
     const sp = read<Record<string, { completed: boolean; bestScore: number; stars: number }>>(SERIES_KEY, {});
     const prefix = `s-${language}-`;
     let completed = 0;
+    const learnerRank = Math.max(3, cefrRank(localProfile().cefrLevel));
+    const CEFR = ["A1", "A2", "B1", "B2", "C1"];
     const list: SeriesEntry[] = Array.from({ length: seriesCount }, (_, i) => {
       const n = i + 1;
+      const slice = all.slice(i * SERIES_SIZE, (i + 1) * SERIES_SIZE);
+      const entryRank = slice.length ? Math.min(...slice.map((w) => cefrRank(w.level))) : 1;
       const cur = sp[`${prefix}${n}`];
       if (cur?.completed) completed += 1;
+      const prev = i > 0 && Boolean(sp[`${prefix}${n - 1}`]?.completed);
       return {
         id: `${prefix}${n}`,
         number: n,
+        level: CEFR[entryRank - 1],
         from: i * SERIES_SIZE + 1,
         to: Math.min(total, (i + 1) * SERIES_SIZE),
         size: SERIES_SIZE,
@@ -622,7 +647,7 @@ export async function fetchSeries(profileId: number, language: string) {
         completed: Boolean(cur?.completed),
         bestScore: cur?.bestScore ?? 0,
         stars: cur?.stars ?? 0,
-        unlocked: i === 0 || i < completed,
+        unlocked: seriesIsUnlocked({ index: i, entryRank, learnerRank, previousCompleted: prev }),
       };
     });
     return {
@@ -632,6 +657,8 @@ export async function fetchSeries(profileId: number, language: string) {
       seriesCount,
       remainder: total % SERIES_SIZE,
       loop: seriesCount ? Math.floor(completed / seriesCount) + 1 : 1,
+      learnerLevel: localProfile().cefrLevel,
+      freeThroughLevel: "B1",
       list,
     };
   }

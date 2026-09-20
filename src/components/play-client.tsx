@@ -10,9 +10,12 @@ import {
   WAVES_ARCADE,
   heatBand,
   langMeta,
+  nextSeriesId,
   padScore,
+  parseSeriesId,
 } from "@/lib/constants";
 import { hintMask, nativePrompt, pickDistractors, pickWeighted, scoreForHit, shuffle } from "@/lib/game";
+import { consumeItem, fetchWords, postSession, saveProgress } from "@/lib/data";
 import {
   pauseMusic,
   resumeAudio,
@@ -43,7 +46,7 @@ import {
 import type { Category, GameMode, Invader, LangCode, Level, WordCard } from "@/lib/types";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Starfield } from "./starfield";
 import { useApp } from "./providers";
 import {
@@ -128,6 +131,7 @@ export function PlayClient() {
   const [shieldQty, setShieldQty] = useState(0);
   const [doubleScore, setDoubleScore] = useState(false);
   const [resolving, setResolving] = useState(false);
+  const [gateOpen, setGateOpen] = useState(false);
   const resolvingRef = useRef(false);
   const [report, setReport] = useState<{ xp: number; credits: number; unlocked: string[]; record: boolean } | null>(
     null,
@@ -207,16 +211,26 @@ export function PlayClient() {
     nativeRef.current = native;
   }, [lang, voiceRate, profile, native]);
 
-  // Combat music: starts with the game, ducks on pause, stops on leave.
+  // Combat music: starts on the deploy tap (mobile autoplay-safe), ducks on
+  // pause, stops when leaving the page.
   useEffect(() => {
+    if (!gateOpen) return;
     startMusic("combat");
     return () => stopMusic();
-  }, []);
+  }, [gateOpen]);
 
   useEffect(() => {
+    if (!gateOpen) return;
     if (phase === "paused") pauseMusic();
     else resumeMusic();
-  }, [phase]);
+  }, [phase, gateOpen]);
+
+  const openGate = async () => {
+    await resumeAudio();
+    primeSpeech();
+    if (profile?.settings.music !== false) startMusic("combat");
+    setGateOpen(true);
+  };
 
   useEffect(() => {
     primeSpeech();
@@ -239,17 +253,13 @@ export function PlayClient() {
     let live = true;
     setLoaded(false);
 
-    const loadWords = async (cat: string, lvl: string): Promise<WordCard[]> => {
-      const qs = new URLSearchParams({
+    const loadWords = (cat: string, lvl: string) =>
+      fetchWords({
         language: lang,
         level: lvl,
         category: cat,
         profileId: String(profile?.id ?? ""),
       });
-      const res = await fetch(`/api/words?${qs.toString()}`);
-      const data = (await res.json()) as WordCard[] | { error?: string };
-      return Array.isArray(data) ? data : [];
-    };
 
     (async () => {
       try {
@@ -257,18 +267,13 @@ export function PlayClient() {
         if (mode === "series" && seriesId) {
           // 150-word block: s-{lang}-{n} -> offset (n-1)*150
           const n = Number(seriesId.split("-").pop() ?? 0);
-          const qs = new URLSearchParams({
+          list = await fetchWords({
             language: lang,
-            offset: String(Math.max(0, (n - 1) * SERIES_SIZE)),
-            limit: String(SERIES_SIZE),
+            offset: Math.max(0, (n - 1) * SERIES_SIZE),
+            limit: SERIES_SIZE,
             profileId: String(profile?.id ?? ""),
           });
-          const res = await fetch(`/api/words?${qs.toString()}`);
-          const data = (await res.json()) as WordCard[];
-          list = Array.isArray(data) ? data : [];
-          if (list.length < 3) {
-            list = (await loadWords("all", "all")) as WordCard[];
-          }
+          if (list.length < 3) list = await loadWords("all", "all");
         } else {
           list = await loadWords(category, level);
           if (list.length < 3) list = await loadWords("all", level);
@@ -296,11 +301,7 @@ export function PlayClient() {
   const consume = useCallback(
     async (code: string) => {
       if (!profile) return;
-      await fetch("/api/shop", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId: profile.id, itemCode: code, delta: -1 }),
-      });
+      await consumeItem(profile.id, code, -1);
     },
     [profile],
   );
@@ -380,7 +381,7 @@ export function PlayClient() {
 
   useEffect(() => {
     if (phase !== "boot") return;
-    if (!pool.length || !profile) return;
+    if (!pool.length || !profile || !gateOpen) return;
     startRef.current = Date.now();
     usedRef.current = new Set();
     resultsRef.current = [];
@@ -390,7 +391,7 @@ export function PlayClient() {
     waveHitsRef.current = 0;
     setPhase("play");
     spawnRound(pool, 1);
-  }, [phase, pool, profile, spawnRound]);
+  }, [phase, pool, profile, spawnRound, gateOpen]);
 
   const selected = invaders.find((i) => i.lane === lane) ?? invaders[1];
   const heat = heatBand(target?.heat ?? 0);
@@ -401,44 +402,30 @@ export function PlayClient() {
       if (endedRef.current || !profile) return;
       endedRef.current = true;
       if (resultsRef.current.length) {
-        await fetch("/api/progress", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ profileId: profile.id, results: resultsRef.current }),
-        });
+        await saveProgress(profile.id, resultsRef.current);
       }
       if (doubleRef.current) await consume("double");
-      const res = await fetch("/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          profileId: profile.id,
-          language: lang,
-          level,
-          category,
-          mode,
-          seriesId,
-          score,
-          wavesCompleted: won ? totalWaves : Math.max(0, wave - 1),
-          maxCombo,
-          wordsCorrect: correctRef.current,
-          wordsWrong: wrongRef.current,
-          livesLeft: hpRef.current,
-          durationMs: Date.now() - startRef.current,
-          won,
-        }),
+      const data = await postSession({
+        profileId: profile.id,
+        language: lang,
+        level,
+        category,
+        mode,
+        seriesId,
+        score,
+        wavesCompleted: won ? totalWaves : Math.max(0, wave - 1),
+        maxCombo,
+        wordsCorrect: correctRef.current,
+        wordsWrong: wrongRef.current,
+        livesLeft: hpRef.current,
+        durationMs: Date.now() - startRef.current,
+        won,
       });
-      const data = (await res.json()) as {
-        xpGain?: number;
-        creditGain?: number;
-        unlocked?: string[];
-        newRecord?: boolean;
-      };
       setReport({
-        xp: data.xpGain ?? 0,
-        credits: data.creditGain ?? 0,
-        unlocked: data.unlocked ?? [],
-        record: Boolean(data.newRecord),
+        xp: data.xpGain,
+        credits: data.creditGain,
+        unlocked: data.unlocked,
+        record: data.newRecord,
       });
       if (won) sfxCoin();
       await reload();
@@ -611,27 +598,6 @@ export function PlayClient() {
     void resumeAudio();
     primeSpeech();
     resolveShot(laneRef.current);
-  };
-
-  /** One-tap combat: aim the ship at a lane and fire in the same gesture. */
-  const fireAt = (laneIndex: number) => {
-    if (phaseRef.current !== "play" || resolvingRef.current) return;
-    void resumeAudio();
-    primeSpeech();
-    setLane(laneIndex);
-    laneRef.current = laneIndex;
-    resolveShot(laneIndex);
-  };
-
-  /** Tap anywhere in the arena: the horizontal position picks the lane. */
-  const onArenaTap = (e: MouseEvent<HTMLDivElement>) => {
-    const arena = arenaRef.current;
-    if (!arena) return;
-    const rect = arena.getBoundingClientRect();
-    if (rect.width <= 0) return;
-    const ratio = (e.clientX - rect.left) / rect.width;
-    const laneIndex = Math.max(0, Math.min(2, Math.floor(ratio * 3)));
-    fireAt(laneIndex);
   };
 
   const shiftLane = (dir: -1 | 1) => {
@@ -899,8 +865,13 @@ export function PlayClient() {
         <div
           ref={arenaRef}
           data-arena=""
-          onClick={onArenaTap}
-          className="relative min-h-[285px] flex-1 cursor-crosshair overflow-hidden rounded-[28px]"
+          onPointerDown={(e) => {
+            // Tapping any empty spot in the arena fires straight away.
+            if ((e.target as HTMLElement).closest("[data-invader]")) return;
+            void resumeAudio();
+            resolveShot(laneRef.current);
+          }}
+          className="relative min-h-[285px] flex-1 cursor-crosshair touch-manipulation overflow-hidden rounded-[28px]"
         >
           <div className="arena-grid pointer-events-none absolute inset-0 rounded-[28px]" />
           <div className="radar-sweep pointer-events-none absolute left-1/2 top-[44%] h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-50" />
@@ -934,9 +905,10 @@ export function PlayClient() {
                     <button
                       type="button"
                       key={`${roundKey}-${laneIndex}-${inv.word.id}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        fireAt(laneIndex);
+                      onClick={() => {
+                        setLane(laneIndex);
+                        laneRef.current = laneIndex;
+                        resolveShot(laneIndex);
                       }}
                       data-invader={laneIndex}
                       {...(inv.isCorrect ? { "data-correct-lane": laneIndex } : {})}
@@ -951,7 +923,7 @@ export function PlayClient() {
                         if (roundRef.current === roundKey) onLeak(laneIndex);
                       }}
                     >
-                      <div className="relative mx-auto h-12 w-16">
+                        <div className={`relative mx-auto h-16 w-20 ${selectedLane ? "" : "opacity-90"}`}>
                         <span
                           ref={(el) => {
                             coreRefs.current[laneIndex] = el;
@@ -1087,7 +1059,7 @@ export function PlayClient() {
               ref={noseRef}
               className="absolute left-1/2 top-1 z-10 h-2 w-2 -translate-x-1/2 rounded-full bg-cyan-100 shadow-[0_0_10px_#7dfff0]"
             />
-            <div className="absolute bottom-2 left-1/2 h-5 w-10 -translate-x-1/2 rounded-full bg-cyan-300/20 blur-md" />
+            <div className="absolute bottom-2 left-1/2 h-6 w-12 -translate-x-1/2 rounded-full bg-cyan-300/20 blur-md" />
             <ShipSprite
               className="relative h-16 w-16 drop-shadow-[0_0_16px_rgba(125,255,240,0.7)]"
               variant={ship}
@@ -1166,6 +1138,32 @@ export function PlayClient() {
         </div>
       )}
 
+      {!gateOpen && pool.length >= 3 && (
+        <div className="absolute inset-0 z-[55] grid place-items-center bg-[#050814]/92 px-6">
+          <div className="holo-strong w-full max-w-sm rounded-3xl p-7 text-center">
+            <ShipSprite className="mx-auto h-20 w-20 drop-shadow-[0_0_18px_rgba(125,255,240,0.7)]" variant={ship} />
+            <p className="font-display mt-4 text-[10px] tracking-[0.35em] text-cyan-200/70">
+              {meta.flag} {ui === "en" ? meta.nameEn : meta.nameTr} · {level}
+            </p>
+            <h2 className="font-display glow-cyan mt-2 text-2xl tracking-[0.22em] text-cyan-100">
+              {tt("startMission")}
+            </h2>
+            <p className="mt-2 text-xs leading-relaxed text-white/55">
+              {ui === "en"
+                ? "Tap deploy to unlock sound and voice on your device."
+                : "Sesi ve seslendirmeyi etkinleştirmek için dokun."}
+            </p>
+            <button
+              type="button"
+              onClick={() => void openGate()}
+              className="holo-strong mt-5 w-full rounded-2xl py-4 font-display text-xl tracking-[0.35em] text-cyan-50"
+            >
+              {tt("start")}
+            </button>
+          </div>
+        </div>
+      )}
+
       {overlay && (
         <div className="absolute inset-0 z-50 grid place-items-center bg-black/75 px-5">
           <div className="holo w-full max-w-sm rounded-3xl p-6 text-center">
@@ -1215,14 +1213,32 @@ export function PlayClient() {
                 {report?.unlocked?.length ? (
                   <p className="mt-3 text-xs text-fuchsia-300">{report.unlocked.join(" · ")}</p>
                 ) : null}
+                {phase === "win" && mode === "series" && seriesId && nextSeriesId(seriesId) && (
+                  <button
+                    type="button"
+                    className="holo-strong mt-4 w-full rounded-xl py-3 text-cyan-200"
+                    onClick={() => {
+                      const next = nextSeriesId(seriesId)!;
+                      window.location.href = `/play?lang=${lang}&level=all&category=all&mode=series&seriesId=${next}&seriesWaves=15`;
+                    }}
+                  >
+                    {tt("nextSeries")} → #{nextSeriesId(seriesId)?.split("-").pop()}
+                    {parseSeriesId(seriesId)?.number === 50 && (
+                      <span className="block text-[10px] text-fuchsia-300">{tt("wrapsToStart")}</span>
+                    )}
+                  </button>
+                )}
                 <button
                   type="button"
-                  className="holo-strong mt-5 w-full rounded-xl py-3"
+                  className="holo mt-3 w-full rounded-xl py-3"
                   onClick={() => window.location.reload()}
                 >
                   {tt("playAgain")}
                 </button>
-                <Link href="/" className="mt-3 block text-sm text-white/50">
+                <Link href="/series" className="mt-3 block text-sm text-cyan-300/80">
+                  {tt("series")}
+                </Link>
+                <Link href="/" className="mt-2 block text-sm text-white/50">
                   {tt("toCommand")}
                 </Link>
               </>

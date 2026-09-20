@@ -43,6 +43,7 @@ export const words = pgTable(
   },
   (t) => ({
     langLevelIdx: index("words_lang_level_idx").on(t.language, t.level, t.category),
+    langIdIdx: index("words_lang_id_idx").on(t.language, t.id),
     conceptLangUq: uniqueIndex("words_concept_lang_uq").on(t.conceptKey, t.language),
   }),
 );
