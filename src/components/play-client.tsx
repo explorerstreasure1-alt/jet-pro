@@ -928,7 +928,7 @@ export function PlayClient() {
                         top: reduce ? "16%" : "0%",
                         animation: reduce ? "none" : `fallY ${durationFor(inv)}s linear forwards`,
                         animationPlayState: frozen ? "paused" : "running",
-                        ["--fall-to" as string]: "min(62vh, calc(100% - 112px))",
+                        ["--fall-to" as string]: "clamp(280px, 62vh, 520px)",
                       }}
                       onAnimationEnd={() => {
                         if (roundRef.current === roundKey) onLeak(laneIndex);
