@@ -798,8 +798,8 @@ export function PlayClient() {
       />
       <Starfield n={36} />
       <div className="relative z-10 mx-auto flex min-h-dvh max-w-[460px] flex-col px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-[max(8px,env(safe-area-inset-top))]">
-        <header className="grid grid-cols-[minmax(82px,1fr)_auto_minmax(106px,1.15fr)_auto] items-center gap-1.5">
-          <div className="holo rounded-xl px-2 py-1.5">
+        <header className="grid grid-cols-[minmax(82px,1fr)_auto_minmax(106px,1.15fr)_auto] items-center gap-1">
+          <div className="holo rounded-xl px-2 py-1">
             <div className="flex items-center justify-between text-[8px] tracking-[0.14em] text-white/45">
               <span>{tt("score")}</span>
               <span>SV.{profile.xp}</span>
@@ -809,11 +809,11 @@ export function PlayClient() {
               <div className="h-full bg-cyan-400/80" style={{ width: `${Math.min(100, (combo / 10) * 100)}%` }} />
             </div>
           </div>
-          <div className="holo grid h-11 w-10 place-items-center rounded-xl">
+          <div className="holo grid h-9 w-10 place-items-center rounded-xl">
             <p className="font-display text-sm leading-none text-cyan-100">{level}</p>
             <p className="text-[8px] tracking-widest text-white/50">{lang.toUpperCase()}</p>
           </div>
-          <div className="holo rounded-xl px-2 py-1.5">
+          <div className="holo rounded-xl px-2 py-1">
             <div className="flex items-center justify-between text-[8px] tracking-[0.14em] text-white/45">
               <span>{tt("lives")}</span>
               <span>{hp}</span>
@@ -827,13 +827,13 @@ export function PlayClient() {
               <div className="h-full bg-emerald-400" style={{ width: `${hp}%` }} />
             </div>
           </div>
-          <div className="flex gap-1.5">
-              <button type="button" className="btn-icon h-9 w-9 text-amber-400" onClick={repeatTarget} aria-label={tt("repeat")}>
+            <div className="flex gap-1">
+              <button type="button" className="btn-icon h-8 w-8 text-amber-400" onClick={repeatTarget} aria-label={tt("repeat")}>
               <IconRepeat />
             </button>
             <button
               type="button"
-              className="btn-icon h-9 w-9"
+              className="btn-icon h-8 w-8"
               onClick={() => setPhase(phase === "paused" ? "play" : "paused")}
               aria-label={tt("pause")}
             >
@@ -841,7 +841,7 @@ export function PlayClient() {
             </button>
             <button
               type="button"
-              className={`btn-icon h-9 w-9 ${peek ? "text-cyan-300" : ""}`}
+              className={`btn-icon h-8 w-8 ${peek ? "text-cyan-300" : ""}`}
               onClick={() => setPeek((v) => !v)}
               aria-label={tt("peek")}
             >
@@ -886,7 +886,7 @@ export function PlayClient() {
             const nextLane = Math.max(0, Math.min(2, Math.floor(((e.clientX - bounds.left) / bounds.width) * 3)));
             tapLane(nextLane);
           }}
-          className="relative min-h-[285px] flex-1 cursor-crosshair touch-manipulation overflow-hidden rounded-[28px]"
+          className="relative min-h-[380px] flex-1 cursor-crosshair touch-manipulation overflow-hidden rounded-[28px]"
         >
           <div className="arena-grid pointer-events-none absolute inset-0 rounded-[28px]" />
           <div className="radar-sweep pointer-events-none absolute left-1/2 top-[44%] h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-50" />
@@ -928,13 +928,13 @@ export function PlayClient() {
                         top: reduce ? "16%" : "0%",
                         animation: reduce ? "none" : `fallY ${durationFor(inv)}s linear forwards`,
                         animationPlayState: frozen ? "paused" : "running",
-                        ["--fall-to" as string]: "48vh",
+                        ["--fall-to" as string]: "62vh",
                       }}
                       onAnimationEnd={() => {
                         if (roundRef.current === roundKey) onLeak(laneIndex);
                       }}
                     >
-                        <div className={`relative mx-auto h-16 w-20 ${selectedLane ? "" : "opacity-90"}`}>
+                        <div className={`relative mx-auto h-12 w-16 ${selectedLane ? "" : "opacity-90"}`}>
                         <span
                           ref={(el) => {
                             coreRefs.current[laneIndex] = el;
